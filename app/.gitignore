@@ -1,0 +1,23 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+*.tsbuildinfo
+*.local
+*.tmp
+*.bak
+
+# Native / Rust
+native/target/
+*.node
+
+# electron-builder leftovers
+*.dmg
+*.blockmap
+*.AppImage
+latest.yml
+latest-mac.yml
+builder-effective-config.yaml
+builder-debug.yml

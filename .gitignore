@@ -141,3 +141,68 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# ---------------------------------------------------------------------------
+# OS
+# ---------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---------------------------------------------------------------------------
+# Editors / IDEs
+# ---------------------------------------------------------------------------
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.history/
+
+# ---------------------------------------------------------------------------
+# Electron / electron-builder extras
+# (app/dist and app/out are already covered by dist/ and out/ above)
+# ---------------------------------------------------------------------------
+*.dmg
+*.blockmap
+*.AppImage
+*.snap
+latest.yml
+latest-mac.yml
+latest-linux.yml
+builder-effective-config.yaml
+builder-debug.yml
+.electron/
+.electron-builder/
+electron-builder.env
+
+# ---------------------------------------------------------------------------
+# Native (Rust / napi) — build outputs, not source
+# ---------------------------------------------------------------------------
+**/target/
+*.node
+
+# ---------------------------------------------------------------------------
+# Local / temp
+# ---------------------------------------------------------------------------
+*.local
+*.tmp
+*.temp
+*.bak
+*.orig
+tmp/
+temp/
+.turbo/
+playwright-report/
+test-results/
+
+# Cursor local scratch
+.cursor/plans/
+.cursor/*.log
