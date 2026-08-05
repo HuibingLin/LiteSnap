@@ -6,16 +6,15 @@
 
 **截图 · 标注 · 贴屏 · 搞定**
 
-轻量快速的 macOS / Windows 截图与标注工具。
+轻量快速的 Windows 截图与标注工具（macOS 安装包稍后开放）。
 
 [English](./README.md) · **简体中文** · [繁體中文](./README.zh-TW.md)
 
 <br />
 
-[![macOS](https://img.shields.io/badge/macOS-v1.0.0%20DMG-111111?style=flat-square&logo=apple&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-arm64.dmg)
 [![Windows](https://img.shields.io/badge/Windows-v1.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-6366f1?style=flat-square)](#下载)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20优先-6366f1?style=flat-square)](#下载)
 
 </div>
 
@@ -23,13 +22,13 @@
 
 ## 下载
 
-直接在本页选择版本和平台下载：
+**优先开放 Windows。** 目前公开下载面向 Windows 用户，方便先观察实际使用量；macOS 正式安装包（含签名公证）会视需求再开放。
 
-| 版本 | macOS（Apple 芯片） | Windows（x64 + ARM64） |
-|:----:|:-------------------:|:----------------------:|
-| **v1.0.0** | [LiteSnap-1.0.0-arm64.dmg](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-arm64.dmg) | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) |
+| 版本 | Windows（x64 + ARM64） | macOS |
+|:----:|:----------------------:|:-----:|
+| **v1.0.0** | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | 即将推出 — 如需 macOS 请[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) |
 
-> macOS 首次使用请在「系统设置 → 隐私与安全性」中允许**屏幕录制**。
+> macOS 安装包暂时隐藏，用于评估苹果用户需求。开发者仍可用 `npm run build:mac` 本地打包。
 
 ---
 

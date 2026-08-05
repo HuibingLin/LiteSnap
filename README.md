@@ -6,16 +6,15 @@
 
 **Capture. Annotate. Pin. Done.**
 
-A fast, lightweight screenshot & annotation tool for macOS and Windows.
+A fast, lightweight screenshot & annotation tool for Windows (macOS build coming later).
 
 **English** · [简体中文](./README.zh-CN.md) · [繁體中文](./README.zh-TW.md)
 
 <br />
 
-[![macOS](https://img.shields.io/badge/macOS-v1.0.0%20DMG-111111?style=flat-square&logo=apple&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-arm64.dmg)
 [![Windows](https://img.shields.io/badge/Windows-v1.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-6366f1?style=flat-square)](#download)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20first-6366f1?style=flat-square)](#download)
 
 </div>
 
@@ -23,13 +22,13 @@ A fast, lightweight screenshot & annotation tool for macOS and Windows.
 
 ## Download
 
-Pick a version and platform — downloads start directly from this page:
+**Windows users first.** Public downloads currently target Windows so we can watch real usage before investing in a signed/notarized macOS release.
 
-| Version | macOS (Apple Silicon) | Windows (x64 + ARM64) |
-|:-------:|:---------------------:|:---------------------:|
-| **v1.0.0** | [LiteSnap-1.0.0-arm64.dmg](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-arm64.dmg) | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) |
+| Version | Windows (x64 + ARM64) | macOS |
+|:-------:|:---------------------:|:-----:|
+| **v1.0.0** | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS |
 
-> After installing on macOS, allow **Screen Recording** in System Settings → Privacy & Security.
+> macOS installers are temporarily hidden while we gauge demand. Developers can still build locally with `npm run build:mac`.
 
 ---
 
