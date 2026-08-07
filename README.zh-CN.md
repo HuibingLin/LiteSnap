@@ -12,7 +12,7 @@
 
 <br />
 
-[![Windows](https://img.shields.io/badge/Windows-v1.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe)
+[![Windows](https://img.shields.io/badge/Windows-v1.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20优先-6366f1?style=flat-square)](#下载)
 
@@ -24,9 +24,12 @@
 
 **优先开放 Windows。** 目前公开下载面向 Windows 用户，方便先观察实际使用量；macOS 正式安装包（含签名公证）会视需求再开放。
 
-| 版本 | Windows（x64 + ARM64） | macOS |
-|:----:|:----------------------:|:-----:|
-| **v1.0.0** | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | 即将推出 — 如需 macOS 请[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) |
+最新版：**[v1.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v1.0.1)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
+
+| 版本 | Windows（x64 + ARM64） | macOS | 说明 |
+|:----:|:----------------------:|:-----:|:-----|
+| **v1.0.1** | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | 即将推出 — 如需 macOS 请[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) | 修复高 DPI 模糊与多屏幕截错屏 |
+| v1.0.0 | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | — | 首个公开 Windows 版本 |
 
 > macOS 安装包暂时隐藏，用于评估苹果用户需求。开发者仍可用 `npm run build:mac` 本地打包。
 
@@ -84,7 +87,7 @@ npm run build:win         # → dist/LiteSnap-*-setup.exe  (x64 + arm64)
 npm run build:win:x64     # → dist/LiteSnap-*-setup.exe  (仅 x64)
 ```
 
-将 `app/dist/` 中的安装包上传到名为 `v1.0.0` 的 [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new)（或在上方下载表中新增一行）。
+将 `app/dist/` 中的安装包上传到 [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new)（例如 `v1.0.1`），并在上方下载表中新增一行。
 
 ### 技术栈
 

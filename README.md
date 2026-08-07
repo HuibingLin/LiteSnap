@@ -12,7 +12,7 @@ A fast, lightweight screenshot & annotation tool for Windows (macOS build coming
 
 <br />
 
-[![Windows](https://img.shields.io/badge/Windows-v1.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe)
+[![Windows](https://img.shields.io/badge/Windows-v1.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20first-6366f1?style=flat-square)](#download)
 
@@ -24,9 +24,12 @@ A fast, lightweight screenshot & annotation tool for Windows (macOS build coming
 
 **Windows users first.** Public downloads currently target Windows so we can watch real usage before investing in a signed/notarized macOS release.
 
-| Version | Windows (x64 + ARM64) | macOS |
-|:-------:|:---------------------:|:-----:|
-| **v1.0.0** | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS |
+Latest: **[v1.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v1.0.1)** · [All releases](https://github.com/HuibingLin/LiteSnap/releases)
+
+| Version | Windows (x64 + ARM64) | macOS | Notes |
+|:-------:|:---------------------:|:-----:|:------|
+| **v1.0.1** | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS | Sharp high-DPI captures; correct multi-monitor targeting |
+| v1.0.0 | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | — | Initial public Windows release |
 
 > macOS installers are temporarily hidden while we gauge demand. Developers can still build locally with `npm run build:mac`.
 
@@ -84,7 +87,7 @@ npm run build:win         # → dist/LiteSnap-*-setup.exe  (x64 + arm64)
 npm run build:win:x64     # → dist/LiteSnap-*-setup.exe  (x64 only)
 ```
 
-Upload files from `app/dist/` to a [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new) named `v1.0.0` (or add a new row in the Download table above).
+Upload files from `app/dist/` to a [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new) (e.g. `v1.0.1`) and add a new row in the Download table above.
 
 ### Tech stack
 
