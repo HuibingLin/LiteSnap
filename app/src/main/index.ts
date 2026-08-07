@@ -204,17 +204,82 @@ async function captureWithScreencapture(rect?: Rect): Promise<Buffer> {
   }
 }
 
+function captureThumbnailSize(display: Electron.Display): { width: number; height: number } {
+  // Windows desktopCapturer thumbnails default to logical pixels (DIP). On
+  // high-DPI displays (125%/150%/200%), that downscales the capture and the
+  // renderer later stretches it back, which looks blurry. Request physical
+  // pixel dimensions to keep screenshots crisp.
+  const scale = Math.max(1, display.scaleFactor || 1)
+  const width = Math.max(1, Math.round(display.bounds.width * scale))
+  const height = Math.max(1, Math.round(display.bounds.height * scale))
+  return { width, height }
+}
+
+// On Windows (and occasionally elsewhere), desktopCapturer sources can report
+// a `display_id` that never matches `screen.getAllDisplays()`'s id (empty
+// string, or a different device handle). When that lookup silently failed we
+// used to fall back to `sources[0]`, which is an arbitrary pick — this is the
+// root cause of screenshots landing on the wrong monitor in multi-display
+// setups. This resolves each display to its best-matching source: exact
+// `display_id` match first, then geometric matching (aspect ratio + how close
+// the thumbnail's pixel size is to the display's own physical resolution) for
+// whatever is left over.
+function matchScreenSourceToDisplay(
+  sources: Electron.DesktopCapturerSource[],
+  displays: Electron.Display[]
+): Map<number, Electron.DesktopCapturerSource> {
+  const matched = new Map<number, Electron.DesktopCapturerSource>()
+  const remainingSources = [...sources]
+  const remainingDisplays = [...displays]
+
+  for (const display of [...remainingDisplays]) {
+    const idx = remainingSources.findIndex(
+      (item) => item.display_id && item.display_id === String(display.id)
+    )
+    if (idx === -1) continue
+    matched.set(display.id, remainingSources[idx])
+    remainingSources.splice(idx, 1)
+    remainingDisplays.splice(remainingDisplays.indexOf(display), 1)
+  }
+
+  for (const display of [...remainingDisplays]) {
+    if (remainingSources.length === 0) break
+    const physicalW = display.bounds.width * (display.scaleFactor || 1)
+    const physicalH = display.bounds.height * (display.scaleFactor || 1)
+    const targetAspect = physicalW / Math.max(1, physicalH)
+
+    let bestIdx = 0
+    let bestScore = Infinity
+    remainingSources.forEach((source, idx) => {
+      const { width, height } = source.thumbnail.getSize()
+      if (width < 2 || height < 2) return
+      const aspectScore = Math.abs(width / Math.max(1, height) - targetAspect)
+      const sizeScore =
+        Math.abs(width - physicalW) / physicalW + Math.abs(height - physicalH) / physicalH
+      const score = aspectScore * 4 + sizeScore
+      if (score < bestScore) {
+        bestScore = score
+        bestIdx = idx
+      }
+    })
+
+    matched.set(display.id, remainingSources[bestIdx])
+    remainingSources.splice(bestIdx, 1)
+    remainingDisplays.splice(remainingDisplays.indexOf(display), 1)
+  }
+
+  return matched
+}
+
 async function captureWithDesktopCapturer(rect?: Rect): Promise<Buffer> {
   const display = getActiveDisplay()
+  const thumbnailSize = captureThumbnailSize(display)
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
-    thumbnailSize: {
-      width: display.size.width,
-      height: display.size.height
-    }
+    thumbnailSize
   })
-  const source =
-    sources.find((item) => item.display_id === String(display.id)) ?? sources[0]
+  const matchedByDisplay = matchScreenSourceToDisplay(sources, screen.getAllDisplays())
+  const source = matchedByDisplay.get(display.id) ?? sources[0]
   if (!source) throw new Error('No screen source available')
 
   let image = source.thumbnail
@@ -316,13 +381,11 @@ function captureWithScreencaptureWindow(windowId: number): Buffer {
 async function captureWithDesktopCapturerWindow(): Promise<{ png: Buffer; bounds: Rect }> {
   const display = getActiveDisplay()
   const winInfo = getFrontmostWindowInfo()
+  const thumbnailSize = captureThumbnailSize(display)
   const sources = await desktopCapturer.getSources({
     types: ['window'],
     fetchWindowIcons: false,
-    thumbnailSize: {
-      width: display.size.width,
-      height: display.size.height
-    }
+    thumbnailSize
   })
 
   const skipName = (name: string): boolean =>
