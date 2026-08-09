@@ -29,7 +29,6 @@ export const zhTW: Messages = {
     adjustRegion: '拖曳控制點可調整大小 · 拖曳內部可移動 · 選擇工具開始標註'
   },
   scrollCapture: {
-    hint: '請先展開網頁中的「閱讀更多／Read more」，再平穩捲動目標視窗；隱藏內容無法被截圖。',
     capture: '擷取下一幀',
     cancel: '取消',
     done: '完成',

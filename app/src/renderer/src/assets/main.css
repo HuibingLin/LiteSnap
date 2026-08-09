@@ -660,14 +660,6 @@ body,
   cursor: default;
 }
 
-.scroll-capture-control__hint {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--ls-on-glass-dim);
-  flex-shrink: 0;
-}
-
 .scroll-capture-control__preview-wrap {
   flex: 1;
   min-height: 0;

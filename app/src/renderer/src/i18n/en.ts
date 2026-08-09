@@ -27,7 +27,6 @@ export interface Messages {
     adjustRegion: string
   }
   scrollCapture: {
-    hint: string
     capture: string
     cancel: string
     done: string
@@ -103,7 +102,6 @@ export const en: Messages = {
     adjustRegion: 'Drag the handles to resize · Drag inside to move · Pick a tool to annotate'
   },
   scrollCapture: {
-    hint: 'Expand any “Read more” section first, then scroll the target steadily. Hidden content cannot be captured.',
     capture: 'Capture next frame',
     cancel: 'Cancel',
     done: 'Done',

@@ -29,7 +29,6 @@ export const zh: Messages = {
     adjustRegion: '拖动控制点可调整大小 · 拖动内部可移动 · 选择工具开始标注'
   },
   scrollCapture: {
-    hint: '请先展开网页中的“阅读更多/Read more”，再平稳滚动目标窗口；隐藏内容无法被截图。',
     capture: '捕获下一帧',
     cancel: '取消',
     done: '完成',

@@ -40,7 +40,6 @@ function ScrollCaptureControl(): React.JSX.Element {
 
   return (
     <div className="scroll-capture-control">
-      <p className="scroll-capture-control__hint">{t.scrollCapture.hint}</p>
       <div className="scroll-capture-control__preview-wrap">
         <p className="scroll-capture-control__preview-label">{t.scrollCapture.preview}</p>
         <div ref={previewRef} className="scroll-capture-control__preview">
