@@ -11,7 +11,7 @@ function formatShortcutLabel(shortcut: string): string {
     .replace(/\+/g, ' + ')
 }
 
-function codeToElectronKey(code: string): string | null {
+function codeToAcceleratorKey(code: string): string | null {
   if (code.startsWith('Key')) return code.slice(3).toUpperCase()
   if (code.startsWith('Digit')) return code.slice(5)
   if (code.startsWith('Numpad')) return code.replace('Numpad', 'Num')
@@ -51,7 +51,7 @@ function keyEventToAccelerator(event: KeyboardEvent): string | null {
   if (event.shiftKey) mods.push('Shift')
   if (mods.length === 0) return null
 
-  const key = codeToElectronKey(event.code)
+  const key = codeToAcceleratorKey(event.code)
   if (!key) return null
 
   return [...mods, key].join('+')

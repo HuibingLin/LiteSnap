@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Selection } from '../store'
 import { useStore } from '../store'
 import { useI18n } from '../i18n'
-import AnnotationToolbar, { STROKE_COLORS, toolUsesColor, type AnnotTool } from './AnnotationToolbar'
-import { loadPngFromBase64, stitchScrollFrame, exportCanvasPreviewBase64 } from '../utils/scrollStitch'
+import AnnotationToolbar, {
+  STROKE_COLORS,
+  toolUsesColor,
+  type AnnotTool
+} from './AnnotationToolbar'
+import { loadPngFromBase64 } from '../utils/scrollStitch'
 import ColorPalette from './ColorPalette'
 import EmojiPicker from './EmojiPicker'
 import TextEditor, {
@@ -143,6 +147,27 @@ function syncImageScale(image: HTMLImageElement): { scaleX: number; scaleY: numb
   }
 }
 
+// Windows benefits from two paint opportunities before revealing the native
+// overlay, but macOS pauses requestAnimationFrame for a hidden WebView. Always
+// resolve through a short timer as a fallback so the hidden capture window can
+// never wait forever and fail to open.
+function waitForOverlayPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false
+    let timer = 0
+    const finish = (): void => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      resolve()
+    }
+    timer = window.setTimeout(finish, 48)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(finish)
+    })
+  })
+}
+
 function selectionToImageCrop(
   rect: Selection,
   image: HTMLImageElement,
@@ -161,7 +186,13 @@ function selectionToImageCrop(
   return { sx, sy, sw, sh }
 }
 
-function drawArrow(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): void {
   const head = 12
   const angle = Math.atan2(y2 - y1, x2 - x1)
   ctx.beginPath()
@@ -176,7 +207,14 @@ function drawArrow(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: nu
   ctx.fill()
 }
 
-function applyMosaic(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, block = 10): void {
+function applyMosaic(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  block = 10
+): void {
   const sx = Math.max(0, Math.floor(x))
   const sy = Math.max(0, Math.floor(y))
   const sw = Math.max(1, Math.floor(w))
@@ -186,20 +224,30 @@ function applyMosaic(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   const { data, width, height } = imageData
   for (let by = 0; by < height; by += block) {
     for (let bx = 0; bx < width; bx += block) {
-      let r = 0, g = 0, b = 0, count = 0
+      let r = 0,
+        g = 0,
+        b = 0,
+        count = 0
       const bw = Math.min(block, width - bx)
       const bh = Math.min(block, height - by)
       for (let yy = 0; yy < bh; yy++) {
         for (let xx = 0; xx < bw; xx++) {
           const i = ((by + yy) * width + (bx + xx)) * 4
-          r += data[i]; g += data[i + 1]; b += data[i + 2]; count++
+          r += data[i]
+          g += data[i + 1]
+          b += data[i + 2]
+          count++
         }
       }
-      r = Math.round(r / count); g = Math.round(g / count); b = Math.round(b / count)
+      r = Math.round(r / count)
+      g = Math.round(g / count)
+      b = Math.round(b / count)
       for (let yy = 0; yy < bh; yy++) {
         for (let xx = 0; xx < bw; xx++) {
           const i = ((by + yy) * width + (bx + xx)) * 4
-          data[i] = r; data[i + 1] = g; data[i + 2] = b
+          data[i] = r
+          data[i + 1] = g
+          data[i + 2] = b
         }
       }
     }
@@ -219,10 +267,8 @@ function ScreenshotOverlay(): React.JSX.Element {
   const penDrawing = useRef(false)
   const highlightDrawing = useRef(false)
   const highlightPoints = useRef<Array<{ x: number; y: number }>>([])
-  const lastViewportBase64 = useRef<string | null>(null)
   const scrollCapturing = useRef(false)
-  const stitchingBusy = useRef(false)
-  const pendingScrollFrames = useRef<string[]>([])
+  const scrollResultReceived = useRef(false)
   const initialSelectionHeight = useRef(0)
   const imageScaleRef = useRef({ scaleX: 1, scaleY: 1 })
   const lastTextFontSize = useRef<TextSize>(TEXT_SIZES[1])
@@ -281,6 +327,11 @@ function ScreenshotOverlay(): React.JSX.Element {
   const setSelection = useStore((s) => s.setSelection)
 
   const displayHeight = selection ? editHeight || selection.height : 0
+  // Scroll capture starts a fresh frame-stitching pipeline. Mixing that pipeline
+  // with an annotated canvas corrupts its baseline and can leave the overlay busy
+  // forever, so only allow it while the selected crop is still untouched.
+  const hasAnnotations =
+    canUndo || textObjects.length > 0 || emojiObjects.length > 0 || textEditor !== null || drawing
   const isLongImage =
     initialSelectionHeight.current > 0 && displayHeight > initialSelectionHeight.current + 2
   // A stitched long screenshot is no longer a plain crop of the frozen frame,
@@ -327,19 +378,6 @@ function ScreenshotOverlay(): React.JSX.Element {
     []
   )
 
-  const sendScrollPreview = useCallback(() => {
-    const canvas = shotRef.current
-    if (!canvas || !selection) return
-    const displayHeight = editHeight || selection.height
-    const base64 = exportCanvasPreviewBase64(canvas)
-    if (!base64) return
-    window.api.sendScrollCapturePreview({
-      base64,
-      width: selection.width,
-      height: displayHeight
-    })
-  }, [selection, editHeight])
-
   const pushHistory = useCallback(() => {
     const canvas = shotRef.current
     if (!canvas) return
@@ -359,99 +397,64 @@ function ScreenshotOverlay(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    const processScrollFrame = (base64: string): void => {
+    const offResult = window.api.onScrollCaptureResult((result) => {
       if (!scrollCapturing.current || !selection) return
-      const canvas = shotRef.current
-      const lastBase64 = lastViewportBase64.current
-      if (!canvas || !lastBase64) return
-
-      if (stitchingBusy.current) {
-        pendingScrollFrames.current.push(base64)
-        return
-      }
-
-      stitchingBusy.current = true
+      scrollResultReceived.current = true
       void (async () => {
         try {
-          let current: string | undefined = base64
-          while (current) {
-            const result = await stitchScrollFrame(
-              canvas,
-              lastViewportBase64.current!,
-              current,
-              selection.width
-            )
-            lastViewportBase64.current = result.lastViewportBase64
-            if (result.appended && result.displayAppend) {
-              pushHistory()
-              setEditHeight((h) => {
-                const next = h + result.displayAppend!
-                paintBackground({ ...selection, height: next }, next, viewScrollTop)
-                return next
-              })
-              sendScrollPreview()
-            }
-            current = pendingScrollFrames.current.shift()
-          }
-        } catch (err) {
-          console.error(err)
-        } finally {
-          stitchingBusy.current = false
-          if (pendingScrollFrames.current.length > 0) {
-            const next = pendingScrollFrames.current.shift()
-            if (next) processScrollFrame(next)
-          }
-        }
-      })()
-    }
-
-    const offInit = window.api.onScrollCaptureInit((base64) => {
-      if (!scrollCapturing.current || !selection) return
-      void (async () => {
-        try {
-          const img = await loadPngFromBase64(base64)
+          const image = await loadPngFromBase64(result.base64)
           const canvas = shotRef.current
           if (!canvas) return
+          canvas.width = result.imageWidth
+          canvas.height = result.imageHeight
           const ctx = canvas.getContext('2d')
           if (!ctx) return
-          canvas.width = img.naturalWidth
-          canvas.height = img.naturalHeight
-          ctx.drawImage(img, 0, 0)
-          lastViewportBase64.current = base64
-          setEditHeight(selection.height)
+          ctx.imageSmoothingEnabled = false
+          ctx.drawImage(image, 0, 0)
+          const finalHeight =
+            (result.imageHeight / Math.max(1, result.imageWidth)) * selection.width
+          setEditHeight(finalHeight)
           setViewScrollTop(0)
           history.current = []
           setCanUndo(false)
-          sendScrollPreview()
+          paintBackground({ ...selection, height: finalHeight }, finalHeight, 0)
+          scrollCapturing.current = false
+          setBusy(false)
+          await waitForOverlayPaint()
+          await window.api.showCaptureOverlay()
+          requestAnimationFrame(() => {
+            const viewport = shotViewportRef.current
+            // The completed long screenshot should open at its beginning so
+            // the user can inspect the capture from top to bottom. Previously
+            // this jumped straight to the tail, making it look as if the
+            // beginning had not been captured.
+            if (viewport) viewport.scrollTop = 0
+          })
         } catch (err) {
-          console.error(err)
+          setError(err instanceof Error ? err.message : 'Failed to decode long screenshot')
+          scrollCapturing.current = false
+          setBusy(false)
+          void window.api.showCaptureOverlay()
         }
       })()
     })
-    const offFrame = window.api.onScrollCaptureFrame((base64) => {
-      processScrollFrame(base64)
-    })
     const offDone = window.api.onScrollCaptureFinished(() => {
+      if (scrollResultReceived.current) return
       scrollCapturing.current = false
-      pendingScrollFrames.current = []
       setBusy(false)
-      requestAnimationFrame(() => {
-        const el = shotViewportRef.current
-        if (el) el.scrollTop = el.scrollHeight
-      })
+      void window.api.showCaptureOverlay()
     })
     const offCancel = window.api.onScrollCaptureCancelled(() => {
       scrollCapturing.current = false
-      pendingScrollFrames.current = []
+      scrollResultReceived.current = false
       setBusy(false)
     })
     return () => {
-      offInit()
-      offFrame()
+      offResult()
       offDone()
       offCancel()
     }
-  }, [selection, pushHistory, paintBackground, sendScrollPreview, viewScrollTop])
+  }, [selection, paintBackground])
 
   const exportPng = useCallback(async (): Promise<Uint8Array> => {
     const canvas = shotRef.current
@@ -462,6 +465,7 @@ function ScreenshotOverlay(): React.JSX.Element {
     exportCanvas.height = canvas.height
     const ctx = exportCanvas.getContext('2d')
     if (!ctx) throw new Error('Canvas unavailable')
+    ctx.imageSmoothingEnabled = false
     ctx.drawImage(canvas, 0, 0)
     for (const obj of textObjects) {
       const fontPx = Math.round(obj.fontSize * obj.scale)
@@ -595,6 +599,9 @@ function ScreenshotOverlay(): React.JSX.Element {
         paintBackground(null)
         setPhase('selecting')
         setError(null)
+        await waitForOverlayPaint()
+        if (cancelled) return
+        await window.api.showCaptureOverlay()
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load screenshot')
@@ -657,6 +664,7 @@ function ScreenshotOverlay(): React.JSX.Element {
         canvas.height = sh
         const ctx = canvas.getContext('2d')
         if (!ctx) return
+        ctx.imageSmoothingEnabled = false
         ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh)
         history.current = []
         setCanUndo(false)
@@ -681,6 +689,7 @@ function ScreenshotOverlay(): React.JSX.Element {
       const { sx, sy, sw, sh } = selectionToImageCrop(next, image)
       canvas.width = sw
       canvas.height = sh
+      ctx.imageSmoothingEnabled = false
       ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh)
 
       const dx = drag.baseSx - sx
@@ -773,7 +782,11 @@ function ScreenshotOverlay(): React.JSX.Element {
         }
         return
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && phase === 'editing') {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === 'z' &&
+        phase === 'editing'
+      ) {
         event.preventDefault()
         undo()
       }
@@ -1044,7 +1057,14 @@ function ScreenshotOverlay(): React.JSX.Element {
         ctx.stroke()
       } else if (tool === 'arrow') drawArrow(ctx, x1, y1, point.x, point.y)
       else if (tool === 'mosaic') {
-        applyMosaic(ctx, Math.min(x1, point.x), Math.min(y1, point.y), Math.abs(w), Math.abs(h), Math.max(6, Math.round(10 * scale)))
+        applyMosaic(
+          ctx,
+          Math.min(x1, point.x),
+          Math.min(y1, point.y),
+          Math.abs(w),
+          Math.abs(h),
+          Math.max(6, Math.round(10 * scale))
+        )
       }
     },
     [drawing, phase, tool, selection, strokeColor]
@@ -1062,10 +1082,13 @@ function ScreenshotOverlay(): React.JSX.Element {
   }, [drawing])
 
   const handleScrollCapture = (): void => {
-    if (!selection || !shotReady || scrollCapturing.current) return
+    // Keep this guard in addition to disabling the toolbar button so a queued or
+    // programmatic click cannot start stitching after an annotation was added.
+    if (!selection || !shotReady || hasAnnotations || scrollCapturing.current) return
     void (async () => {
       setBusy(true)
       scrollCapturing.current = true
+      scrollResultReceived.current = false
       try {
         await window.api.beginScrollCapture(selection)
       } catch (err) {
@@ -1099,21 +1122,20 @@ function ScreenshotOverlay(): React.JSX.Element {
   // Prefer floating the palette/picker above the toolbar; if there isn't
   // enough headroom (e.g. a full-screen selection pins the toolbar near the
   // top edge), drop it below the toolbar instead so it never overlaps it.
-  const placeAboveOrBelow = (
-    height: number
-  ): number | undefined => {
+  const placeAboveOrBelow = (height: number): number | undefined => {
     if (!toolbarPos) return undefined
     const above = toolbarPos.top - height - 8
     if (above >= 8) return above
     return Math.min(toolbarPos.top + TOOLBAR_HEIGHT + 8, window.innerHeight - height - 8)
   }
 
-  const colorPalettePos = toolbarPos && showColors
-    ? {
-        left: toolbarPos.left + (TOOLBAR_WIDTH - PALETTE_WIDTH) / 2,
-        top: placeAboveOrBelow(PALETTE_HEIGHT) ?? 8
-      }
-    : undefined
+  const colorPalettePos =
+    toolbarPos && showColors
+      ? {
+          left: toolbarPos.left + (TOOLBAR_WIDTH - PALETTE_WIDTH) / 2,
+          top: placeAboveOrBelow(PALETTE_HEIGHT) ?? 8
+        }
+      : undefined
 
   const emojiPickerPos = toolbarPos
     ? { left: toolbarPos.left, top: placeAboveOrBelow(EMOJI_PICKER_HEIGHT) ?? 8 }
@@ -1277,18 +1299,16 @@ function ScreenshotOverlay(): React.JSX.Element {
       {canAdjustRegion &&
         selection &&
         RESIZE_HANDLES.map((handle) => {
-          const left =
-            handle.includes('w')
-              ? selection.x
-              : handle.includes('e')
-                ? selection.x + selection.width
-                : selection.x + selection.width / 2
-          const top =
-            handle.includes('n')
-              ? selection.y
-              : handle.includes('s')
-                ? selection.y + displayHeight
-                : selection.y + displayHeight / 2
+          const left = handle.includes('w')
+            ? selection.x
+            : handle.includes('e')
+              ? selection.x + selection.width
+              : selection.x + selection.width / 2
+          const top = handle.includes('n')
+            ? selection.y
+            : handle.includes('s')
+              ? selection.y + displayHeight
+              : selection.y + displayHeight / 2
           return (
             <div
               key={handle}
@@ -1316,11 +1336,13 @@ function ScreenshotOverlay(): React.JSX.Element {
         </div>
       )}
 
-      {phase === 'editing' && !textEditor && (textObjects.length > 0 || emojiObjects.length > 0) && (
-        <div className="long-image-scroll-hint">
-          {textObjects.length > 0 ? t.textEditor.moveHint : t.textEditor.emojiMoveHint}
-        </div>
-      )}
+      {phase === 'editing' &&
+        !textEditor &&
+        (textObjects.length > 0 || emojiObjects.length > 0) && (
+          <div className="long-image-scroll-hint">
+            {textObjects.length > 0 ? t.textEditor.moveHint : t.textEditor.emojiMoveHint}
+          </div>
+        )}
 
       {phase === 'editing' && isLongImage && (
         <div className="long-image-scroll-hint">{t.scrollCapture.scrollPreviewHint}</div>
@@ -1335,7 +1357,10 @@ function ScreenshotOverlay(): React.JSX.Element {
       {error && <div className="overlay-hint-bar overlay-hint-bar--error">{error}</div>}
 
       {selection && selection.width > 0 && selection.height > 0 && phase === 'selecting' && (
-        <div className="selection-size" style={{ left: selection.x, top: Math.max(8, selection.y - 28) }}>
+        <div
+          className="selection-size"
+          style={{ left: selection.x, top: Math.max(8, selection.y - 28) }}
+        >
           {Math.round(selection.width)} × {Math.round(selection.height)}
         </div>
       )}
@@ -1363,6 +1388,7 @@ function ScreenshotOverlay(): React.JSX.Element {
             tool={tool}
             canUndo={canUndo}
             toolsDisabled={toolsLocked}
+            scrollCaptureDisabled={hasAnnotations}
             confirmDisabled={toolsLocked}
             showEmojiPicker={showEmojiPicker}
             style={toolbarPos}

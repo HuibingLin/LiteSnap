@@ -1,0 +1,1 @@
+{"desktop":{"identifier":"desktop","description":"LiteSnap application windows","local":true,"windows":["overlay","shortcut","scroll-control","pin"],"permissions":["core:default","core:window:allow-close","core:window:allow-destroy","core:window:allow-set-size","core:window:allow-start-dragging","core:window:allow-start-resize-dragging"]}}

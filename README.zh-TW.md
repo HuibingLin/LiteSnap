@@ -6,15 +6,15 @@
 
 **截圖 · 標註 · 貼螢幕 · 搞定**
 
-輕量快速的 Windows 截圖與標註工具（macOS 安裝包稍後開放）。
+輕量快速的截圖與標註工具，現在先發布 Windows 版本。macOS 會在 Apple Developer 審核與公證完成後再上線。
 
 [English](./README.md) · [简体中文](./README.zh-CN.md) · **繁體中文**
 
 <br />
 
-[![Windows](https://img.shields.io/badge/Windows-v1.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe)
+[![Windows](https://img.shields.io/badge/Windows-v2.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20優先-6366f1?style=flat-square)](#下載)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20優先%20%2F%20macOS%20稍後-6366f1?style=flat-square)](#下載)
 
 </div>
 
@@ -22,16 +22,16 @@
 
 ## 下載
 
-**優先開放 Windows。** 目前公開下載面向 Windows 使用者，方便先觀察實際使用量；macOS 正式安裝包（含簽名公證）會視需求再開放。
+**Windows 先上線。** 目前先發布 Windows 安裝包，方便直接提供給使用者下載。macOS 會在 Apple Developer 審核與公證完成後再開放。
 
-最新版：**[v1.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v1.0.1)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
+最新版：**[v2.0.0](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.0)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
 
-| 版本 | Windows（x64 + ARM64） | macOS | 說明 |
-|:----:|:----------------------:|:-----:|:-----|
-| **v1.0.1** | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | 即將推出 — 如需 macOS 請[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) | 修復高 DPI 模糊與多螢幕截錯螢幕 |
-| v1.0.0 | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | — | 首個公開 Windows 版本 |
+| 版本 | Windows | macOS | 說明 |
+|:----:|:-------:|:-----:|:-----|
+| **v2.0.0** | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | 稍後上線 | 從 Electron 轉到 Tauri，安裝包更小、啟動更輕 |
+| v1.0.1 | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | 即將推出 — 如需 macOS 請[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) | 舊版公開 Windows 版本 |
 
-> macOS 安裝包暫時隱藏，用於評估 Apple 使用者需求。開發者仍可用 `npm run build:mac` 本機打包。
+> macOS 目前暫停發布，等 Apple Developer 審核完成後再上線。Windows 使用者現在可以直接下載新版。
 
 ---
 
@@ -70,6 +70,18 @@
 - **貼在螢幕** — 截圖以真實尺寸懸浮置頂
 - **系統匣常駐** — 不佔 Dock / 工作列；支援英文、簡體、繁體
 
+## 為什麼是 v2.0.0
+
+- Electron 安裝包體積太大，所以 LiteSnap 轉到 Tauri，降低安裝包大小，也讓啟動更輕。
+- Windows 版本先發布，這樣可以先把穩定的安裝包交給大家下載使用。
+- macOS 會稍後上線，因為 Apple Developer 目前還在審核中，簽名與公證還沒完成。
+
+## 舊版技術棧說明
+
+舊版技術棧：Electron · electron-vite · React 19 · TypeScript · Zustand · electron-builder
+
+新版技術棧：Tauri 2 · Rust · React 19 · TypeScript · Zustand
+
 ## 開發
 
 ```bash
@@ -82,16 +94,29 @@ npm run dev
 
 ```bash
 cd app
-npm run build:mac         # → dist/LiteSnap-*-arm64.dmg
-npm run build:win         # → dist/LiteSnap-*-setup.exe  (x64 + arm64)
-npm run build:win:x64     # → dist/LiteSnap-*-setup.exe  (僅 x64)
+npm run build:win         # → dist/LiteSnap_2.0.0_x64-setup.exe
+npm run build:mac         # → dist/LiteSnap-2.0.0-*.dmg（macOS 後續發布）
 ```
 
-將 `app/dist/` 中的安裝包上傳到 [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new)（例如 `v1.0.1`），並在上方下載表中新增一列。
+## 發布 Windows 安裝包
 
-### 技術棧
+1. 在 Windows 機器上打包：
 
-Electron · electron-vite · React 19 · TypeScript · Zustand · electron-builder
+   ```bash
+   cd app
+   npm install
+   npm run build:win
+   ```
+
+2. 打包完成後，到這個目錄找安裝包：
+
+   `app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`
+
+3. 在 GitHub 建立一個 Release，例如 `v2.0.0`。
+
+4. 把 `LiteSnap_2.0.0_x64-setup.exe` 上傳到這個 Release。
+
+5. 保留上面的下載表直鏈，這樣其他人可以直接點下載，不需要再進 Release 頁面找檔案。
 
 ## 授權條款
 

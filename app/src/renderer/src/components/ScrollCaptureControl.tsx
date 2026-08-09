@@ -11,13 +11,31 @@ function ScrollCaptureControl(): React.JSX.Element {
   } | null>(null)
 
   useEffect(() => {
-    return window.api.onScrollCapturePreview((payload) => {
+    const offStarted = window.api.onScrollCaptureStarted(() => {
+      setPreview(null)
+      if (previewRef.current) {
+        previewRef.current.scrollTop = 0
+        previewRef.current.scrollLeft = 0
+      }
+    })
+    const offPreview = window.api.onScrollCapturePreview((payload) => {
       setPreview(payload)
       requestAnimationFrame(() => {
         const el = previewRef.current
         if (el) el.scrollTop = el.scrollHeight
       })
     })
+    // Register all listeners first, then tell the native side it is safe to
+    // send the baseline preview. The first Windows WebView is created lazily
+    // and can otherwise miss the initial event while navigation is in flight.
+    const readyTimer = window.setTimeout(() => {
+      void window.api.scrollControlReady()
+    }, 50)
+    return () => {
+      window.clearTimeout(readyTimer)
+      offStarted()
+      offPreview()
+    }
   }, [])
 
   return (

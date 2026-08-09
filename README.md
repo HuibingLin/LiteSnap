@@ -6,15 +6,15 @@
 
 **Capture. Annotate. Pin. Done.**
 
-A fast, lightweight screenshot & annotation tool for Windows (macOS build coming later).
+A fast, lightweight screenshot & annotation tool for Windows first. macOS will ship later after Apple Developer review and notarization are ready.
 
 **English** · [简体中文](./README.zh-CN.md) · [繁體中文](./README.zh-TW.md)
 
 <br />
 
-[![Windows](https://img.shields.io/badge/Windows-v1.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe)
+[![Windows](https://img.shields.io/badge/Windows-v2.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20first-6366f1?style=flat-square)](#download)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20first%20%2F%20macOS%20later-6366f1?style=flat-square)](#download)
 
 </div>
 
@@ -22,16 +22,16 @@ A fast, lightweight screenshot & annotation tool for Windows (macOS build coming
 
 ## Download
 
-**Windows users first.** Public downloads currently target Windows so we can watch real usage before investing in a signed/notarized macOS release.
+**Windows is live first.** The public release is Windows-only for now so we can ship the stable installer immediately. macOS will follow after Apple Developer review finishes.
 
-Latest: **[v1.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v1.0.1)** · [All releases](https://github.com/HuibingLin/LiteSnap/releases)
+Latest: **[v2.0.0](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.0)** · [All releases](https://github.com/HuibingLin/LiteSnap/releases)
 
-| Version | Windows (x64 + ARM64) | macOS | Notes |
-|:-------:|:---------------------:|:-----:|:------|
-| **v1.0.1** | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS | Sharp high-DPI captures; correct multi-monitor targeting |
-| v1.0.0 | [LiteSnap-1.0.0-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.0/LiteSnap-1.0.0-setup.exe) | — | Initial public Windows release |
+| Version | Windows | macOS | Notes |
+|:-------:|:-------:|:-----:|:------|
+| **v2.0.0** | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | Coming later | Migrated from Electron to Tauri for a much smaller installer and lighter startup |
+| v1.0.1 | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS | Previous public Windows release |
 
-> macOS installers are temporarily hidden while we gauge demand. Developers can still build locally with `npm run build:mac`.
+> macOS is paused until Apple Developer approval is complete. Windows users can download the current release now.
 
 ---
 
@@ -70,6 +70,18 @@ Press a global hotkey, drag out a region, mark it up, then copy, save, or pin it
 - **Pin on screen** — keep a capture floating at true size while you work
 - **Tray-first** — stays out of the way until you need it; English / 简体中文 / 繁體中文
 
+## Why v2.0.0
+
+- Electron bundles were too large for the release experience we want, so LiteSnap moved to Tauri for a smaller installer and lighter runtime.
+- Windows is shipping first so you can download and test the stable installer immediately.
+- macOS will ship later, after Apple Developer review and notarization are ready.
+
+## Migration Note
+
+Previous stack: Electron · electron-vite · React 19 · TypeScript · Zustand · electron-builder
+
+Current stack: Tauri 2 · Rust · React 19 · TypeScript · Zustand
+
 ## Develop
 
 ```bash
@@ -82,16 +94,29 @@ npm run dev
 
 ```bash
 cd app
-npm run build:mac         # → dist/LiteSnap-*-arm64.dmg
-npm run build:win         # → dist/LiteSnap-*-setup.exe  (x64 + arm64)
-npm run build:win:x64     # → dist/LiteSnap-*-setup.exe  (x64 only)
+npm run build:win         # → dist/LiteSnap_2.0.0_x64-setup.exe
+npm run build:mac         # → dist/LiteSnap-2.0.0-*.dmg (for later macOS release)
 ```
 
-Upload files from `app/dist/` to a [GitHub Release](https://github.com/HuibingLin/LiteSnap/releases/new) (e.g. `v1.0.1`) and add a new row in the Download table above.
+## Release Windows installer
 
-### Tech stack
+1. Build the installer on Windows:
 
-Electron · electron-vite · React 19 · TypeScript · Zustand · electron-builder
+   ```bash
+   cd app
+   npm install
+   npm run build:win
+   ```
+
+2. Find the installer in:
+
+   `app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`
+
+3. Create a GitHub Release tag such as `v2.0.0`.
+
+4. Upload `LiteSnap_2.0.0_x64-setup.exe` to that release.
+
+5. Keep the direct download link in the table above so people can grab the installer without hunting through the release page.
 
 ## License
 

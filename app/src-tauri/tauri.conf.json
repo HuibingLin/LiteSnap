@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LiteSnap",
+  "version": "2.0.0",
+  "identifier": "com.litesnap.app",
+  "build": {
+    "beforeDevCommand": "npm run dev:web",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist-web"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost"
+    },
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "../build/icon.png",
+      "../build/icon.icns",
+      "../build/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "../build/icon.ico",
+        "uninstallerIcon": "../build/icon.ico"
+      }
+    },
+    "macOS": {
+      "entitlements": "../build/entitlements.mac.plist",
+      "infoPlist": "Info.plist",
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

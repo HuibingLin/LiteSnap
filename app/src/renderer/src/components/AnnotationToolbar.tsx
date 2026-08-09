@@ -30,6 +30,7 @@ interface AnnotationToolbarProps {
   tool: AnnotTool
   canUndo: boolean
   toolsDisabled?: boolean
+  scrollCaptureDisabled?: boolean
   confirmDisabled?: boolean
   showEmojiPicker?: boolean
   onToolChange: (tool: AnnotTool) => void
@@ -46,6 +47,7 @@ function AnnotationToolbar({
   tool,
   canUndo,
   toolsDisabled,
+  scrollCaptureDisabled,
   confirmDisabled,
   showEmojiPicker,
   onToolChange,
@@ -92,7 +94,11 @@ function AnnotationToolbar({
       <div className="wx-toolbar__divider" />
 
       <div className="wx-toolbar__group">
-        <TooltipButton label={t.toolbar.scrollCapture} disabled={locked} onClick={onScrollCapture}>
+        <TooltipButton
+          label={t.toolbar.scrollCapture}
+          disabled={locked || scrollCaptureDisabled}
+          onClick={onScrollCapture}
+        >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="7" y="3" width="10" height="18" rx="1" strokeDasharray="3 2" /><path d="M12 7 V17" /><path d="M9 14 L12 17 L15 14" /></svg>
         </TooltipButton>
       </div>

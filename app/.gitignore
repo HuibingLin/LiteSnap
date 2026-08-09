@@ -1,6 +1,9 @@
 node_modules
 dist
+dist-web
 out
+.xwin-cache/
+release/
 .DS_Store
 .eslintcache
 *.log*
@@ -11,6 +14,7 @@ out
 
 # Native / Rust
 native/target/
+src-tauri/target/
 *.node
 
 # electron-builder leftovers

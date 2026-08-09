@@ -11,196 +11,216 @@ function imageToCanvas(image: HTMLImageElement): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = image.naturalWidth
   canvas.height = image.naturalHeight
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) throw new Error('Canvas unavailable')
+  ctx.imageSmoothingEnabled = false
   ctx.drawImage(image, 0, 0)
   return canvas
 }
 
-function normalizeToWidth(image: HTMLImageElement, targetWidth: number): HTMLCanvasElement {
-  if (image.naturalWidth === targetWidth) return imageToCanvas(image)
-  const scale = targetWidth / image.naturalWidth
-  const canvas = document.createElement('canvas')
-  canvas.width = targetWidth
-  canvas.height = Math.round(image.naturalHeight * scale)
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas unavailable')
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-  return canvas
+interface ScrollSegment {
+  canvas: HTMLCanvasElement
+  height: number
 }
 
-function extractBottomStrip(canvas: HTMLCanvasElement, stripHeight: number): HTMLCanvasElement {
-  const height = Math.min(stripHeight, canvas.height)
-  const strip = document.createElement('canvas')
-  strip.width = canvas.width
-  strip.height = height
-  const ctx = strip.getContext('2d')
-  if (!ctx) throw new Error('Canvas unavailable')
-  ctx.drawImage(canvas, 0, canvas.height - height, canvas.width, height, 0, 0, canvas.width, height)
-  return strip
-}
-
-const PIXEL_TOLERANCE = 18
-const MIN_NEW_CONTENT = 4
-
-function rowDiff(
-  prev: ImageData,
-  next: ImageData,
-  prevY: number,
-  nextY: number,
+export interface ScrollStitchSession {
   width: number
-): number {
-  let diff = 0
-  const step = Math.max(1, Math.floor(width / 80))
-  for (let x = 0; x < width; x += step) {
-    const pi = (prevY * prev.width + x) * 4
-    const ni = (nextY * next.width + x) * 4
-    const dr = Math.abs(prev.data[pi] - next.data[ni])
-    const dg = Math.abs(prev.data[pi + 1] - next.data[ni + 1])
-    const db = Math.abs(prev.data[pi + 2] - next.data[ni + 2])
-    if (dr + dg + db > PIXEL_TOLERANCE) diff++
-  }
-  return diff
+  viewportHeight: number
+  totalHeight: number
+  lastFrame: HTMLCanvasElement
+  lastFrameData: ImageData
+  segments: ScrollSegment[]
 }
 
-function overlapScore(
-  prevData: ImageData,
-  nextData: ImageData,
-  prevHeight: number,
-  width: number,
-  overlap: number
-): number {
-  const samples = 20
-  let score = 0
-  for (let i = 0; i < samples; i++) {
-    const prevY = prevHeight - overlap + Math.floor((i * overlap) / samples)
-    const nextY = Math.floor((i * overlap) / samples)
-    score += rowDiff(prevData, nextData, prevY, nextY, width)
-  }
-  return score
-}
+const MIN_NEW_CONTENT = 8
+const MIN_OVERLAP = 12
+const MAX_MATCH_SCORE = 0.115
+const DUPLICATE_SCORE = 0.018
+const SMALL_SHIFT_LIMIT = 16
 
-function findVerticalOverlap(prev: HTMLCanvasElement, next: HTMLCanvasElement): number | null {
+/**
+ * Scores a vertical overlap using a trimmed set of two-dimensional colour
+ * samples. Trimming noisy rows tolerates fixed headers, cursors and animation.
+ */
+function overlapScore(prev: ImageData, next: ImageData, overlap: number): number {
   const width = Math.min(prev.width, next.width)
-  const viewport = Math.min(prev.height, next.height)
+  const rows = Math.min(36, Math.max(10, Math.floor(overlap / 8)))
+  const left = Math.floor(width * 0.05)
+  const right = Math.max(left + 1, Math.ceil(width * 0.95))
+  const xStep = Math.max(1, Math.floor((right - left) / 56))
+  const rowScores: number[] = []
+
+  for (let row = 0; row < rows; row++) {
+    const offset = Math.min(overlap - 1, Math.floor(((row + 0.5) * overlap) / rows))
+    const prevY = prev.height - overlap + offset
+    const nextY = offset
+    let difference = 0
+    let samples = 0
+    for (let x = left; x < right; x += xStep) {
+      const pi = (prevY * prev.width + x) * 4
+      const ni = (nextY * next.width + x) * 4
+      difference += Math.abs(prev.data[pi] - next.data[ni])
+      difference += Math.abs(prev.data[pi + 1] - next.data[ni + 1])
+      difference += Math.abs(prev.data[pi + 2] - next.data[ni + 2])
+      samples++
+    }
+    rowScores.push(difference / Math.max(1, samples * 255 * 3))
+  }
+
+  rowScores.sort((a, b) => a - b)
+  const retainedRows = Math.max(6, Math.ceil(rowScores.length * 0.7))
+  let total = 0
+  for (let index = 0; index < retainedRows; index++) total += rowScores[index]
+  return total / retainedRows
+}
+
+function findVerticalOverlap(prev: ImageData, next: ImageData): number | null {
+  if (prev.width !== next.width || prev.height !== next.height) return null
+  const viewport = prev.height
   const maxOverlap = viewport - MIN_NEW_CONTENT
-  const minOverlap = Math.max(16, Math.floor(viewport * 0.03))
-  if (maxOverlap <= minOverlap) return null
+  if (maxOverlap < MIN_OVERLAP) return null
 
-  const prevData = prev.getContext('2d')!.getImageData(0, 0, width, prev.height)
-  const nextData = next.getContext('2d')!.getImageData(0, 0, width, next.height)
+  const fullFrameScore = overlapScore(prev, next, viewport)
+  if (fullFrameScore <= DUPLICATE_SCORE) return viewport
 
-  let bestOverlap = minOverlap
+  let bestOverlap = maxOverlap
   let bestScore = Infinity
+  const coarseStep = Math.max(5, Math.floor(viewport / 100))
 
-  for (let overlap = minOverlap; overlap <= maxOverlap; overlap += 8) {
-    const score = overlapScore(prevData, nextData, prev.height, width, overlap)
-    if (score < bestScore) {
+  for (let overlap = maxOverlap; overlap >= MIN_OVERLAP; overlap -= coarseStep) {
+    const score = overlapScore(prev, next, overlap)
+    if (score < bestScore - 0.0005) {
       bestScore = score
       bestOverlap = overlap
     }
   }
 
-  const fineMin = Math.max(minOverlap, bestOverlap - 20)
-  const fineMax = Math.min(maxOverlap, bestOverlap + 20)
-  for (let overlap = fineMin; overlap <= fineMax; overlap++) {
-    const score = overlapScore(prevData, nextData, prev.height, width, overlap)
-    if (score < bestScore) {
+  const fineMin = Math.max(MIN_OVERLAP, bestOverlap - coarseStep - 2)
+  const fineMax = Math.min(maxOverlap, bestOverlap + coarseStep + 2)
+  for (let overlap = fineMax; overlap >= fineMin; overlap--) {
+    const score = overlapScore(prev, next, overlap)
+    if (
+      score < bestScore - 0.0001 ||
+      (Math.abs(score - bestScore) <= 0.0001 && overlap > bestOverlap)
+    ) {
       bestScore = score
       bestOverlap = overlap
     }
   }
 
-  const samplePoints = 20 * Math.ceil(width / 80)
-  const maxAllowedScore = Math.max(10, Math.floor(samplePoints * 0.45))
-  if (bestScore > maxAllowedScore) return null
+  if (bestScore > MAX_MATCH_SCORE) return null
 
+  // Tiny apparent movement is usually a caret, hover state or animation in an
+  // otherwise stationary viewport. Reject it so idle frames cannot slowly
+  // duplicate the first viewport at the start of a capture.
+  const newContent = viewport - bestOverlap
+  if (newContent <= SMALL_SHIFT_LIMIT && fullFrameScore <= bestScore + 0.012) return viewport
   return bestOverlap
 }
 
-function appendToCanvas(
-  canvas: HTMLCanvasElement,
-  nextFrame: HTMLCanvasElement,
-  overlap: number,
+export function createScrollStitchSession(image: HTMLImageElement): ScrollStitchSession {
+  const frame = imageToCanvas(image)
+  const data = frame
+    .getContext('2d', { willReadFrequently: true })!
+    .getImageData(0, 0, frame.width, frame.height)
+  return {
+    width: frame.width,
+    viewportHeight: frame.height,
+    totalHeight: frame.height,
+    lastFrame: frame,
+    lastFrameData: data,
+    segments: [{ canvas: frame, height: frame.height }]
+  }
+}
+
+export async function stitchScrollFrame(
+  session: ScrollStitchSession,
+  nextBase64: string,
   displayWidth: number
-): { appended: boolean; displayAppend?: number } {
+): Promise<{ appended: boolean; displayAppend?: number }> {
+  const nextRaw = await loadPngFromBase64(nextBase64)
+  if (nextRaw.naturalWidth !== session.width || nextRaw.naturalHeight !== session.viewportHeight) {
+    return { appended: false }
+  }
+
+  const nextFrame = imageToCanvas(nextRaw)
+  const nextData = nextFrame
+    .getContext('2d', { willReadFrequently: true })!
+    .getImageData(0, 0, nextFrame.width, nextFrame.height)
+  const overlap = findVerticalOverlap(session.lastFrameData, nextData)
+  if (overlap === null) return { appended: false }
+
+  // A valid duplicate still becomes the comparison baseline. This prevents a
+  // blinking cursor or hover state from poisoning later overlap detection.
+  session.lastFrame = nextFrame
+  session.lastFrameData = nextData
   const newPartHeight = nextFrame.height - overlap
   if (newPartHeight < MIN_NEW_CONTENT) return { appended: false }
 
-  const merged = document.createElement('canvas')
-  merged.width = canvas.width
-  merged.height = canvas.height + newPartHeight
-  const mctx = merged.getContext('2d')
-  if (!mctx) return { appended: false }
-
-  mctx.drawImage(canvas, 0, 0)
-  mctx.drawImage(
+  const slice = document.createElement('canvas')
+  slice.width = nextFrame.width
+  slice.height = newPartHeight
+  const sliceContext = slice.getContext('2d')
+  if (!sliceContext) return { appended: false }
+  sliceContext.imageSmoothingEnabled = false
+  sliceContext.drawImage(
     nextFrame,
     0,
     overlap,
     nextFrame.width,
     newPartHeight,
     0,
-    canvas.height,
-    canvas.width,
+    0,
+    nextFrame.width,
     newPartHeight
   )
-
-  canvas.height = merged.height
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return { appended: false }
-  ctx.drawImage(merged, 0, 0)
-
-  const displayAppend = (newPartHeight / canvas.width) * displayWidth
-  return { appended: true, displayAppend }
+  session.segments.push({ canvas: slice, height: newPartHeight })
+  session.totalHeight += newPartHeight
+  return {
+    appended: true,
+    displayAppend: (newPartHeight / session.width) * displayWidth
+  }
 }
 
-function alignCanvasWidth(canvas: HTMLCanvasElement, targetWidth: number): void {
-  if (canvas.width === targetWidth) return
-  const resized = document.createElement('canvas')
-  resized.width = targetWidth
-  resized.height = Math.round(canvas.height * (targetWidth / canvas.width))
-  const rctx = resized.getContext('2d')
-  if (!rctx) return
-  rctx.drawImage(canvas, 0, 0, resized.width, resized.height)
-  canvas.width = resized.width
-  canvas.height = resized.height
-  canvas.getContext('2d')?.drawImage(resized, 0, 0)
+function drawSession(session: ScrollStitchSession, target: HTMLCanvasElement, scale: number): void {
+  target.width = Math.max(1, Math.round(session.width * scale))
+  target.height = Math.max(1, Math.round(session.totalHeight * scale))
+  const ctx = target.getContext('2d')
+  if (!ctx) return
+  ctx.imageSmoothingEnabled = scale !== 1
+  if (scale !== 1) ctx.imageSmoothingQuality = 'high'
+  let y = 0
+  for (const segment of session.segments) {
+    const height = Math.max(1, Math.round(segment.height * scale))
+    ctx.drawImage(
+      segment.canvas,
+      0,
+      0,
+      segment.canvas.width,
+      segment.height,
+      0,
+      y,
+      target.width,
+      height
+    )
+    y += height
+  }
 }
 
-export async function stitchScrollFrame(
-  canvas: HTMLCanvasElement,
-  lastViewportBase64: string,
-  nextBase64: string,
-  displayWidth: number
-): Promise<{ appended: boolean; lastViewportBase64: string; displayAppend?: number }> {
-  const prevRaw = await loadPngFromBase64(lastViewportBase64)
-  const nextRaw = await loadPngFromBase64(nextBase64)
+export function renderScrollStitchSession(
+  session: ScrollStitchSession,
+  target: HTMLCanvasElement
+): void {
+  drawSession(session, target, 1)
+}
 
-  const targetWidth = Math.max(prevRaw.naturalWidth, nextRaw.naturalWidth, canvas.width)
-  const prevFrame = normalizeToWidth(prevRaw, targetWidth)
-  const nextFrame = normalizeToWidth(nextRaw, targetWidth)
-
-  if (Math.abs(prevFrame.height - nextFrame.height) > 8) {
-    return { appended: false, lastViewportBase64: nextBase64 }
-  }
-
-  alignCanvasWidth(canvas, targetWidth)
-
-  let overlap = findVerticalOverlap(prevFrame, nextFrame)
-
-  if (overlap === null && canvas.height > MIN_NEW_CONTENT) {
-    const stripHeight = Math.min(nextFrame.height, Math.max(Math.floor(nextFrame.height * 0.65), 120))
-    const bottomStrip = extractBottomStrip(canvas, stripHeight)
-    overlap = findVerticalOverlap(bottomStrip, nextFrame)
-  }
-
-  if (overlap === null) {
-    return { appended: false, lastViewportBase64: nextBase64 }
-  }
-
-  const result = appendToCanvas(canvas, nextFrame, overlap, displayWidth)
-  return { ...result, lastViewportBase64: nextBase64 }
+export function exportScrollSessionPreviewBase64(
+  session: ScrollStitchSession,
+  maxWidth = 300
+): string {
+  const preview = document.createElement('canvas')
+  drawSession(session, preview, Math.min(1, maxWidth / session.width))
+  return preview.toDataURL('image/png').split(',')[1] ?? ''
 }
 
 export function exportCanvasPreviewBase64(canvas: HTMLCanvasElement, maxWidth = 300): string {
@@ -210,6 +230,8 @@ export function exportCanvasPreviewBase64(canvas: HTMLCanvasElement, maxWidth = 
   tmp.height = Math.max(1, Math.round(canvas.height * scale))
   const ctx = tmp.getContext('2d')
   if (!ctx) return ''
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(canvas, 0, 0, tmp.width, tmp.height)
   return tmp.toDataURL('image/png').split(',')[1] ?? ''
 }

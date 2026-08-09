@@ -1,33 +1,31 @@
 {
   "name": "app",
-  "version": "1.0.1",
-  "description": "An Electron application with React and TypeScript",
-  "main": "./out/main/index.js",
+  "version": "2.0.0",
+  "description": "A fast native screenshot utility built with Tauri, React and TypeScript",
   "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://github.com/litesnap/litesnap",
   "napi": {
     "name": "litesnap-native"
   },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && rm -rf dist/win-unpacked dist/win-arm64-unpacked && electron-builder --win",
-    "build:win:x64": "npm run build && rm -rf dist/win-unpacked && electron-builder --win --x64",
-    "build:mac": "electron-vite build && rm -rf dist/mac-arm64 && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "typecheck": "npm run typecheck:web",
+    "start": "vite preview",
+    "dev": "tauri dev",
+    "dev:web": "vite",
+    "build:web": "npm run typecheck && vite build",
+    "build": "tauri build",
+    "build:mac": "tauri build --bundles app",
+    "package:mac": "node scripts/package-mac.mjs",
+    "build:mac:release": "npm run build:mac && npm run package:mac",
+    "build:win": "PATH=/opt/homebrew/opt/llvm/bin:$PATH RC=/opt/homebrew/opt/llvm/bin/llvm-rc XWIN_CACHE_DIR=.xwin-cache tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis",
+    "build:debug": "tauri build --debug",
+    "tauri": "tauri"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
-    "@electron-toolkit/utils": "^4.0.0",
-    "electron-updater": "^6.3.9",
+    "@tauri-apps/api": "^2.11.0",
     "emoji-picker-react": "^4.19.1",
     "konva": "^10.3.0",
     "react-konva": "^19.2.5",
@@ -35,17 +33,12 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
-    "@electron-toolkit/eslint-config-ts": "^3.1.0",
-    "@electron-toolkit/tsconfig": "^2.0.0",
-    "@napi-rs/cli": "^3.7.2",
+    "@eslint/js": "^9.39.1",
+    "@tauri-apps/cli": "^2.11.0",
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^39.2.6",
-    "electron-builder": "^26.0.12",
-    "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -54,6 +47,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4",
     "vite": "^7.2.6"
   }
 }
