@@ -98,26 +98,6 @@ npm run build:win         # → dist/LiteSnap_2.0.0_x64-setup.exe
 npm run build:mac         # → dist/LiteSnap-2.0.0-*.dmg (for later macOS release)
 ```
 
-## Release Windows installer
-
-1. Build the installer on Windows:
-
-   ```bash
-   cd app
-   npm install
-   npm run build:win
-   ```
-
-2. Find the installer in:
-
-   `app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`
-
-3. Create a GitHub Release tag such as `v2.0.0`.
-
-4. Upload `LiteSnap_2.0.0_x64-setup.exe` to that release.
-
-5. Keep the direct download link in the table above so people can grab the installer without hunting through the release page.
-
 ## License
 
 [MIT](./LICENSE) © HuibingLin

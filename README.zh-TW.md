@@ -98,26 +98,6 @@ npm run build:win         # → dist/LiteSnap_2.0.0_x64-setup.exe
 npm run build:mac         # → dist/LiteSnap-2.0.0-*.dmg（macOS 後續發布）
 ```
 
-## 發布 Windows 安裝包
-
-1. 在 Windows 機器上打包：
-
-   ```bash
-   cd app
-   npm install
-   npm run build:win
-   ```
-
-2. 打包完成後，到這個目錄找安裝包：
-
-   `app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`
-
-3. 在 GitHub 建立一個 Release，例如 `v2.0.0`。
-
-4. 把 `LiteSnap_2.0.0_x64-setup.exe` 上傳到這個 Release。
-
-5. 保留上面的下載表直鏈，這樣其他人可以直接點下載，不需要再進 Release 頁面找檔案。
-
 ## 授權條款
 
 [MIT](./LICENSE) © HuibingLin
