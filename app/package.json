@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A fast native screenshot utility built with Tauri, React and TypeScript",
   "author": "example.com",
   "homepage": "https://github.com/litesnap/litesnap",

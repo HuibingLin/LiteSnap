@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     fs,
+    io::Cursor,
     path::PathBuf,
     process::Command,
     sync::{
@@ -16,7 +17,7 @@ use arboard::{Clipboard, ImageData};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use directories::BaseDirs;
 use image::{
-    ColorType, GenericImageView, ImageEncoder, RgbaImage,
+    ColorType, ImageEncoder, RgbaImage,
     codecs::png::{CompressionType, FilterType as PngFilterType, PngEncoder},
     imageops::{self, FilterType as ResizeFilter},
 };
@@ -1689,6 +1690,38 @@ fn prewarm_overlay(app: &AppHandle) {
     }
 }
 
+fn build_pin_window(
+    app: &AppHandle,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    WebviewWindowBuilder::new(app, "pin", WebviewUrl::App("index.html?view=pin".into()))
+        .title("LiteSnap")
+        .position(x, y)
+        .inner_size(width, height)
+        .min_inner_size(60.0, 60.0)
+        .decorations(false)
+        .transparent(true)
+        .shadow(true)
+        .resizable(true)
+        .always_on_top(true)
+        .visible(false)
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn prewarm_pin_window(app: &AppHandle) {
+    if app.get_webview_window("pin").is_none() {
+        if let Err(error) = build_pin_window(app, 0.0, 0.0, 60.0, 60.0) {
+            eprintln!("Unable to prewarm pin window: {error}");
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn screen_permission_granted() -> bool {
     #[link(name = "CoreGraphics", kind = "framework")]
@@ -2705,10 +2738,16 @@ fn save_image(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
     Ok(true)
 }
 
-#[tauri::command]
-fn pin_image(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
-    let image = image::load_from_memory(&data).map_err(|error| error.to_string())?;
-    let (pixel_width, pixel_height) = image.dimensions();
+fn pin_image_impl(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
+    // Reading the PNG header is enough to size the native window. Fully
+    // decoding a large/long screenshot on Tauri's IPC thread can starve the
+    // Windows event loop, which also prevents Cancel and the global shortcut
+    // from being processed.
+    let (pixel_width, pixel_height) = image::io::Reader::new(Cursor::new(&data))
+        .with_guessed_format()
+        .map_err(|error| error.to_string())?
+        .into_dimensions()
+        .map_err(|error| error.to_string())?;
     let capture = app.state::<AppState>().capture.lock().unwrap().clone();
     let scale = capture
         .as_ref()
@@ -2737,27 +2776,84 @@ fn pin_image(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
     let window_height = (natural_height * fit).max(60.0);
     let window_x = screen_bounds.x + (screen_bounds.width - window_width) / 2.0;
     let window_y = screen_bounds.y + (screen_bounds.height - window_height) / 2.0;
-    *app.state::<AppState>().pin_data.lock().unwrap() = Some(data.clone());
-    if let Some(window) = app.get_webview_window("pin") {
-        let _ = window.close();
+    #[cfg(target_os = "windows")]
+    let physical_geometry = capture.as_ref().map(|capture| {
+        let scale = capture.scale_factor.max(1.0);
+        (
+            capture.physical_origin_x + ((window_x - capture.bounds.x) * scale).round() as i32,
+            capture.physical_origin_y + ((window_y - capture.bounds.y) * scale).round() as i32,
+            (window_width * scale).round().max(1.0) as u32,
+            (window_height * scale).round().max(1.0) as u32,
+        )
+    });
+    *app.state::<AppState>().pin_data.lock().unwrap() = Some(data);
+
+    #[cfg(target_os = "windows")]
+    if app.get_webview_window("pin").is_none() {
+        build_pin_window(&app, window_x, window_y, window_width, window_height)?;
     }
-    let window =
-        WebviewWindowBuilder::new(&app, "pin", WebviewUrl::App("index.html?view=pin".into()))
-            .title("LiteSnap")
-            .position(window_x, window_y)
-            .inner_size(window_width, window_height)
-            .min_inner_size(60.0, 60.0)
-            .decorations(false)
-            .transparent(true)
-            .shadow(true)
-            .resizable(true)
-            .always_on_top(true)
-            .visible(false)
-            .build()
-            .map_err(|error| error.to_string())?;
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Some(window) = app.get_webview_window("pin") {
+            let _ = window.close();
+        }
+        build_pin_window(&app, window_x, window_y, window_width, window_height)?;
+    }
+
+    let window = app
+        .get_webview_window("pin")
+        .ok_or_else(|| "Pin window is unavailable".to_string())?;
+    #[cfg(target_os = "windows")]
+    {
+        // Reuse the renderer created during startup. Destroying a WebView2 and
+        // immediately rebuilding another with the same label can deadlock the
+        // Windows UI thread and leave the capture session permanently busy.
+        window.hide().map_err(|error| error.to_string())?;
+        if let Some((x, y, width, height)) = physical_geometry {
+            // A physical window pixel now maps to one captured image pixel.
+            // This also avoids sizing the reused WebView with the DPI of the
+            // monitor where it was prewarmed instead of the capture monitor.
+            window
+                .set_position(tauri::PhysicalPosition::new(x, y))
+                .map_err(|error| error.to_string())?;
+            window
+                .set_size(tauri::PhysicalSize::new(width, height))
+                .map_err(|error| error.to_string())?;
+        } else {
+            window
+                .set_position(tauri::LogicalPosition::new(window_x, window_y))
+                .map_err(|error| error.to_string())?;
+            window
+                .set_size(tauri::LogicalSize::new(window_width, window_height))
+                .map_err(|error| error.to_string())?;
+        }
+        let _ = window.emit("pin-image-updated", ());
+    }
     window.show().map_err(|error| error.to_string())?;
     close_overlay_impl(&app);
     Ok(true)
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+async fn pin_image(app: AppHandle, data_base64: String) -> Result<bool, String> {
+    // Decode away from the WebView2/UI thread. Large screenshots must not hold
+    // up Cancel, window events, or the global screenshot shortcut.
+    let data = tauri::async_runtime::spawn_blocking(move || {
+        BASE64
+            .decode(data_base64)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    pin_image_impl(app, data)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn pin_image(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
+    pin_image_impl(app, data)
 }
 
 #[tauri::command]
@@ -2769,6 +2865,17 @@ fn get_pin_image(state: State<AppState>) -> Result<String, String> {
         .as_ref()
         .map(|data| BASE64.encode(data))
         .ok_or_else(|| "No pinned image is available".into())
+}
+
+#[tauri::command]
+fn close_pin_window(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("pin") {
+        #[cfg(target_os = "windows")]
+        let _ = window.hide();
+        #[cfg(not(target_os = "windows"))]
+        let _ = window.destroy();
+    }
+    *app.state::<AppState>().pin_data.lock().unwrap() = None;
 }
 
 #[tauri::command]
@@ -2934,7 +3041,10 @@ pub fn run() {
             // to capture pixels and resize/show the existing native window.
             prewarm_overlay(app.handle());
             #[cfg(target_os = "windows")]
-            prewarm_scroll_control(app.handle());
+            {
+                prewarm_scroll_control(app.handle());
+                prewarm_pin_window(app.handle());
+            }
 
             let shortcut = app.state::<AppState>().settings.lock().unwrap().capture_shortcut.clone();
             eprintln!("LiteSnap capture shortcut: {shortcut}");
@@ -2981,6 +3091,7 @@ pub fn run() {
             save_image,
             pin_image,
             get_pin_image,
+            close_pin_window,
             open_url,
             get_settings,
             set_language,

@@ -269,6 +269,7 @@ function ScreenshotOverlay(): React.JSX.Element {
   const highlightPoints = useRef<Array<{ x: number; y: number }>>([])
   const scrollCapturing = useRef(false)
   const scrollResultReceived = useRef(false)
+  const pendingAction = useRef(0)
   const initialSelectionHeight = useRef(0)
   const imageScaleRef = useRef({ scaleX: 1, scaleY: 1 })
   const lastTextFontSize = useRef<TextSize>(TEXT_SIZES[1])
@@ -490,6 +491,14 @@ function ScreenshotOverlay(): React.JSX.Element {
     })
     return new Uint8Array(await blob.arrayBuffer())
   }, [textObjects, emojiObjects])
+
+  const cancelOverlay = useCallback(() => {
+    // Invalidate an export that is still waiting for canvas encoding before it
+    // reaches the native pin/save/copy command.
+    pendingAction.current += 1
+    setBusy(false)
+    window.api.closeOverlay()
+  }, [])
 
   const screenToCanvas = useCallback(
     (left: number, top: number): { canvasX: number; canvasY: number } => {
@@ -763,7 +772,7 @@ function ScreenshotOverlay(): React.JSX.Element {
           setSelectedEmojiId(null)
           return
         }
-        window.api.closeOverlay()
+        cancelOverlay()
         return
       }
       if (
@@ -804,7 +813,7 @@ function ScreenshotOverlay(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [phase, busy, shotReady, undo, exportPng, textEditor, selectedTextId, selectedEmojiId])
+  }, [phase, busy, shotReady, undo, exportPng, cancelOverlay, textEditor, selectedTextId, selectedEmojiId])
 
   useEffect(() => {
     const onMove = (event: MouseEvent): void => {
@@ -1410,15 +1419,22 @@ function ScreenshotOverlay(): React.JSX.Element {
             }}
             onPin={() => {
               void (async () => {
+                const action = ++pendingAction.current
                 setBusy(true)
                 try {
-                  await window.api.pinImage(await exportPng())
+                  const png = await exportPng()
+                  if (action !== pendingAction.current) return
+                  await window.api.pinImage(png)
+                } catch (err) {
+                  if (action === pendingAction.current) {
+                    setError(err instanceof Error ? err.message : 'Failed to pin screenshot')
+                  }
                 } finally {
-                  setBusy(false)
+                  if (action === pendingAction.current) setBusy(false)
                 }
               })()
             }}
-            onCancel={() => window.api.closeOverlay()}
+            onCancel={cancelOverlay}
             onConfirm={() => {
               void (async () => {
                 setBusy(true)

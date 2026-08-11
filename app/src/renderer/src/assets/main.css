@@ -741,11 +741,22 @@ body,
   height: 100vh;
   position: relative;
   overflow: hidden;
-  border: 1.5px solid #6366f1;
+  border: 0;
   border-radius: 8px;
   box-shadow: 0 10px 34px rgba(10, 12, 24, 0.34);
   background: transparent;
   cursor: grab;
+}
+
+.pin-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1.5px solid #6366f1;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .pin-wrap:active {
@@ -776,6 +787,7 @@ body,
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease;
+  z-index: 2;
 }
 
 .pin-resize {
@@ -789,6 +801,7 @@ body,
   background: transparent;
   cursor: nwse-resize;
   opacity: 0;
+  z-index: 2;
 }
 
 .pin-resize::after {

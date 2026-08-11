@@ -12,7 +12,7 @@
 
 <br />
 
-[![Windows](https://img.shields.io/badge/Windows-v2.0.0%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe)
+[![Windows](https://img.shields.io/badge/Windows-v2.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20优先%20%2F%20macOS%20稍后-6366f1?style=flat-square)](#下载)
 
@@ -24,11 +24,12 @@
 
 **Windows 先上线。** 目前先发布 Windows 安装包，方便直接给用户下载。macOS 会在 Apple Developer 审核和公证完成后再开放。
 
-最新版：**[v2.0.0](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.0)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
+最新版：**[v2.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.1)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
 
 | 版本 | Windows | macOS | 说明 |
 |:----:|:-------:|:-----:|:-----|
-| **v2.0.0** | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | 稍后上线 | 从 Electron 迁移到 Tauri，安装包更小、启动更轻 |
+| **v2.0.1** | [LiteSnap_2.0.1_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe) | 稍后上线 | Windows 贴屏更稳定、取消操作可恢复，并适配不同 DPI 的真实尺寸 |
+| v2.0.0 | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | 稍后上线 | 从 Electron 迁移到 Tauri，安装包更小、启动更轻 |
 | v1.0.1 | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | 即将推出 — 如需 macOS 请[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) | 旧版公开 Windows 版本 |
 
 > macOS 目前暂停发布，等 Apple Developer 审核完成后再上线。Windows 用户现在可以直接下载新版。
@@ -70,6 +71,15 @@
 - **贴在屏幕** — 截图以真实尺寸悬浮置顶
 - **托盘常驻** — 不占 Dock / 任务栏；支持英文、简体、繁体
 
+## v2.0.1 修改与提升
+
+- **Windows 贴屏更稳定** — 修复点击贴屏后一直显示“处理中”的问题，置顶贴图窗口可以安全复用。
+- **取消后可继续截图** — 取消操作会及时退出当前截图流程，不再造成下一次全局快捷键失效。
+- **贴图保持真实尺寸** — Windows 在 100%、125%、150% 显示缩放及多屏环境下，贴图尺寸与所选截图区域一致。
+- **调整大小更可控** — 只有用户主动拖动调整手柄时才修正宽高比，新贴图不会错误套用上一张图片的比例。
+- **图片传输更轻量** — Windows 使用单个 base64 载荷并在后台线程解码，避免大量 JSON 数组导致 WebView2 卡顿。
+- **完整显示截图** — 贴图边框改为覆盖绘制，不再挤占或缩小图片显示区域。
+
 ## 为什么是 v2.0.0
 
 - Electron 安装包体积太大，所以 LiteSnap 迁移到 Tauri，降低安装包体积，也让启动更轻。
@@ -94,8 +104,8 @@ npm run dev
 
 ```bash
 cd app
-npm run build:win         # → dist/LiteSnap_2.0.0_x64-setup.exe
-npm run build:mac         # → dist/LiteSnap-2.0.0-*.dmg（macOS 后续发布）
+npm run build:win         # → src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/LiteSnap_2.0.1_x64-setup.exe
+npm run build:mac         # → src-tauri/target/release/bundle/macos/LiteSnap.app
 ```
 
 ## 许可证

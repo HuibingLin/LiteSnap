@@ -83,6 +83,26 @@ function subscribe<T>(event: string, callback: (payload: T) => void): () => void
 }
 
 const bytes = (png: Uint8Array): number[] => Array.from(png)
+const isWindows = navigator.userAgent.toLowerCase().includes('windows')
+
+function pngBase64(png: Uint8Array): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const copy = new Uint8Array(png.byteLength)
+    copy.set(png)
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to encode screenshot'))
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('Failed to encode screenshot'))
+        return
+      }
+      const separator = result.indexOf(',')
+      resolve(separator >= 0 ? result.slice(separator + 1) : result)
+    }
+    reader.readAsDataURL(new Blob([copy.buffer], { type: 'image/png' }))
+  })
+}
 
 export const api: Api = {
   closeOverlay: () => void invoke('close_overlay'),
@@ -100,7 +120,13 @@ export const api: Api = {
   checkScreenPermission: () => invoke('check_screen_permission'),
   copyImage: (png) => invoke('copy_image', { data: bytes(png) }),
   saveImage: (png) => invoke('save_image', { data: bytes(png) }),
-  pinImage: (png) => invoke('pin_image', { data: bytes(png) }),
+  // A base64 string avoids both WebView2's unreliable top-level raw IPC and
+  // the huge JSON number arrays that originally blocked its window thread.
+  // Keep macOS on its already-verified native byte-array command shape.
+  pinImage: async (png) =>
+    isWindows
+      ? invoke('pin_image', { dataBase64: await pngBase64(png) })
+      : invoke('pin_image', { data: bytes(png) }),
   openUrl: (url) => invoke('open_url', { url }),
   getSettings: () => invoke('get_settings'),
   setLanguage: (language) => invoke('set_language', { language }),
