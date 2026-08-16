@@ -6,15 +6,16 @@
 
 **截图 · 标注 · 贴屏 · 搞定**
 
-轻量快速的截图与标注工具，当前优先发布 Windows 版。macOS 会在 Apple Developer 审核与公证完成后再上线。
+轻量快速的 Windows 与 macOS 截图、标注工具。
 
 [English](./README.md) · **简体中文** · [繁體中文](./README.zh-TW.md)
 
 <br />
 
 [![Windows](https://img.shields.io/badge/Windows-v2.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe)
+[![macOS](https://img.shields.io/badge/macOS-v2.0.1%20Universal%20DMG-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_universal.dmg)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20优先%20%2F%20macOS%20稍后-6366f1?style=flat-square)](#下载)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%2F%20macOS-6366f1?style=flat-square)](#下载)
 
 </div>
 
@@ -22,17 +23,17 @@
 
 ## 下载
 
-**Windows 先上线。** 目前先发布 Windows 安装包，方便直接给用户下载。macOS 会在 Apple Developer 审核和公证完成后再开放。
+**Windows 和 macOS 现已开放下载。** macOS Universal DMG 已使用 Developer ID 签名并通过 Apple 公证，同时支持 Apple Silicon 与 Intel Mac，最低支持 macOS 10.15。
 
 最新版：**[v2.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.1)** · [全部版本](https://github.com/HuibingLin/LiteSnap/releases)
 
 | 版本 | Windows | macOS | 说明 |
 |:----:|:-------:|:-----:|:-----|
-| **v2.0.1** | [LiteSnap_2.0.1_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe) | 稍后上线 | Windows 贴屏更稳定、取消操作可恢复，并适配不同 DPI 的真实尺寸 |
+| **v2.0.1** | [LiteSnap_2.0.1_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe) | [LiteSnap_2.0.1_universal.dmg](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_universal.dmg) | Windows 贴屏更稳定、取消操作可恢复、适配不同 DPI 的真实尺寸，并正式提供已签名和公证的 macOS Universal 版本 |
 | v2.0.0 | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | 稍后上线 | 从 Electron 迁移到 Tauri，安装包更小、启动更轻 |
 | v1.0.1 | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | 即将推出 — 如需 macOS 请[提交 Issue](https://github.com/HuibingLin/LiteSnap/issues) | 旧版公开 Windows 版本 |
 
-> macOS 目前暂停发布，等 Apple Developer 审核完成后再上线。Windows 用户现在可以直接下载新版。
+> macOS 首次启动时会要求“屏幕与系统录音”权限，以便 LiteSnap 截取屏幕。安装包已通过 Apple 公证，无需绕过 Gatekeeper 即可正常打开。
 
 ---
 
@@ -83,8 +84,8 @@
 ## 为什么是 v2.0.0
 
 - Electron 安装包体积太大，所以 LiteSnap 迁移到 Tauri，降低安装包体积，也让启动更轻。
-- Windows 版本先发布，这样可以先把稳定安装包交付给大家下载使用。
-- macOS 会稍后上线，因为 Apple Developer 目前还在审核中，签名和公证还没完成。
+- Windows 版本先发布，以便尽快交付稳定安装包并完成测试。
+- Apple Developer 签名和公证完成后，macOS 已在 v2.0.1 正式提供同时支持 Apple Silicon 与 Intel Mac 的 Universal DMG。
 
 ## 旧版技术栈说明
 
@@ -106,6 +107,8 @@ npm run dev
 cd app
 npm run build:win         # → src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/LiteSnap_2.0.1_x64-setup.exe
 npm run build:mac         # → src-tauri/target/release/bundle/macos/LiteSnap.app
+npx tauri build --bundles dmg --target universal-apple-darwin
+                          # → src-tauri/target/universal-apple-darwin/release/bundle/dmg/LiteSnap_2.0.1_universal.dmg
 ```
 
 ## 许可证

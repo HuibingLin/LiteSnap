@@ -6,15 +6,16 @@
 
 **Capture. Annotate. Pin. Done.**
 
-A fast, lightweight screenshot & annotation tool for Windows first. macOS will ship later after Apple Developer review and notarization are ready.
+A fast, lightweight screenshot & annotation tool for Windows and macOS.
 
 **English** · [简体中文](./README.zh-CN.md) · [繁體中文](./README.zh-TW.md)
 
 <br />
 
 [![Windows](https://img.shields.io/badge/Windows-v2.0.1%20Setup-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe)
+[![macOS](https://img.shields.io/badge/macOS-v2.0.1%20Universal%20DMG-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_universal.dmg)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20first%20%2F%20macOS%20later-6366f1?style=flat-square)](#download)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%2F%20macOS-6366f1?style=flat-square)](#download)
 
 </div>
 
@@ -22,17 +23,17 @@ A fast, lightweight screenshot & annotation tool for Windows first. macOS will s
 
 ## Download
 
-**Windows is live first.** The public release is Windows-only for now so we can ship the stable installer immediately. macOS will follow after Apple Developer review finishes.
+**Windows and macOS are now available.** The macOS Universal DMG is signed with Developer ID, notarized by Apple, and supports both Apple Silicon and Intel Macs running macOS 10.15 or later.
 
 Latest: **[v2.0.1](https://github.com/HuibingLin/LiteSnap/releases/tag/v2.0.1)** · [All releases](https://github.com/HuibingLin/LiteSnap/releases)
 
 | Version | Windows | macOS | Notes |
 |:-------:|:-------:|:-----:|:------|
-| **v2.0.1** | [LiteSnap_2.0.1_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe) | Coming later | More reliable Windows pinning, responsive cancellation, and true-size pinned screenshots across DPI scales |
+| **v2.0.1** | [LiteSnap_2.0.1_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_x64-setup.exe) | [LiteSnap_2.0.1_universal.dmg](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.1/LiteSnap_2.0.1_universal.dmg) | More reliable Windows pinning, responsive cancellation, true-size pinned screenshots, and a signed and notarized Universal macOS release |
 | v2.0.0 | [LiteSnap_2.0.0_x64-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v2.0.0/LiteSnap_2.0.0_x64-setup.exe) | Coming later | Migrated from Electron to Tauri for a much smaller installer and lighter startup |
 | v1.0.1 | [LiteSnap-1.0.1-setup.exe](https://github.com/HuibingLin/LiteSnap/releases/download/v1.0.1/LiteSnap-1.0.1-setup.exe) | Coming soon — please [open an issue](https://github.com/HuibingLin/LiteSnap/issues) if you need macOS | Previous public Windows release |
 
-> macOS is paused until Apple Developer approval is complete. Windows users can download the current release now.
+> On first launch, macOS will ask for Screen & System Audio Recording permission so LiteSnap can capture the screen. The DMG is notarized and can be opened normally without bypassing Gatekeeper.
 
 ---
 
@@ -83,8 +84,8 @@ Press a global hotkey, drag out a region, mark it up, then copy, save, or pin it
 ## Why v2.0.0
 
 - Electron bundles were too large for the release experience we want, so LiteSnap moved to Tauri for a smaller installer and lighter runtime.
-- Windows is shipping first so you can download and test the stable installer immediately.
-- macOS will ship later, after Apple Developer review and notarization are ready.
+- Windows shipped first so the stable installer could be tested immediately.
+- macOS followed once Apple Developer signing and notarization were complete; v2.0.1 now provides a Universal DMG for Apple Silicon and Intel Macs.
 
 ## Migration Note
 
@@ -106,6 +107,8 @@ npm run dev
 cd app
 npm run build:win         # → src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/LiteSnap_2.0.1_x64-setup.exe
 npm run build:mac         # → src-tauri/target/release/bundle/macos/LiteSnap.app
+npx tauri build --bundles dmg --target universal-apple-darwin
+                          # → src-tauri/target/universal-apple-darwin/release/bundle/dmg/LiteSnap_2.0.1_universal.dmg
 ```
 
 ## License
