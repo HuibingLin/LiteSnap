@@ -193,18 +193,39 @@ function drawArrow(
   x2: number,
   y2: number
 ): void {
-  const head = 12
+  const length = Math.hypot(x2 - x1, y2 - y1)
+  if (length < 1) return
+
+  // Annotation coordinates are physical canvas pixels. On Retina displays the
+  // canvas is commonly 2x the CSS size, so a fixed 12px arrowhead becomes only
+  // 6px on screen and is almost invisible. Derive it from the already-scaled
+  // stroke width and cap it for short arrows.
+  const head = Math.min(Math.max(16, ctx.lineWidth * 5), length * 0.55)
+  const wingAngle = Math.PI / 5
   const angle = Math.atan2(y2 - y1, x2 - x1)
+  const shaftInset = head * Math.cos(wingAngle)
+  const shaftEndX = x2 - shaftInset * Math.cos(angle)
+  const shaftEndY = y2 - shaftInset * Math.sin(angle)
+
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  // End the round-capped shaft underneath the arrowhead. Drawing it all the
+  // way to (x2, y2) lets the cap protrude past the tip, which is especially
+  // visible as a detached-looking dot on a Retina canvas.
   ctx.beginPath()
   ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
+  ctx.lineTo(shaftEndX, shaftEndY)
   ctx.stroke()
+
   ctx.beginPath()
   ctx.moveTo(x2, y2)
-  ctx.lineTo(x2 - head * Math.cos(angle - Math.PI / 6), y2 - head * Math.sin(angle - Math.PI / 6))
-  ctx.lineTo(x2 - head * Math.cos(angle + Math.PI / 6), y2 - head * Math.sin(angle + Math.PI / 6))
+  ctx.lineTo(x2 - head * Math.cos(angle - wingAngle), y2 - head * Math.sin(angle - wingAngle))
+  ctx.lineTo(x2 - head * Math.cos(angle + wingAngle), y2 - head * Math.sin(angle + wingAngle))
   ctx.closePath()
   ctx.fill()
+  ctx.restore()
 }
 
 function applyMosaic(

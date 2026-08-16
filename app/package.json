@@ -29,7 +29,6 @@
     "emoji-picker-react": "^4.19.1",
     "konva": "^10.3.0",
     "react-konva": "^19.2.5",
-    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
