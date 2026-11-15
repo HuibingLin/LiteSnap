@@ -23,10 +23,12 @@ export const zhTW: Messages = {
   },
   hints: {
     dragToSelect: '拖曳選取區域 · Esc 取消',
+    dragToSelectWithPicker: '拖曳選取區域 · 按 C 複製色值 · Esc 取消',
     loading: '正在載入截圖…',
     capturing: '正在擷取螢幕…',
     working: '處理中…',
-    adjustRegion: '拖曳控制點可調整大小 · 拖曳內部可移動 · 選擇工具開始標註'
+    adjustRegion: '拖曳控制點可調整大小 · 拖曳內部可移動 · 選擇工具開始標註',
+    copyColor: '按 C 複製色值'
   },
   scrollCapture: {
     capture: '擷取下一幀',

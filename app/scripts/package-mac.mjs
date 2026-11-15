@@ -31,6 +31,15 @@ if (!fs.existsSync(appBundlePath)) {
   process.exit(1);
 }
 
+const entitlementsPath = path.join(rootDir, 'build', 'entitlements.mac.plist');
+if (!process.env.APPLE_SIGNING_IDENTITY && fs.existsSync(entitlementsPath)) {
+  execFileSync(
+    'codesign',
+    ['--force', '--deep', '--sign', '-', '--entitlements', entitlementsPath, appBundlePath],
+    { stdio: 'inherit' },
+  );
+}
+
 fs.mkdirSync(outputDir, { recursive: true });
 
 const zipPath = path.join(outputDir, `LiteSnap-${version}-${arch}.zip`);

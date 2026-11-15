@@ -21,10 +21,12 @@ export interface Messages {
   }
   hints: {
     dragToSelect: string
+    dragToSelectWithPicker: string
     loading: string
     capturing: string
     working: string
     adjustRegion: string
+    copyColor: string
   }
   scrollCapture: {
     capture: string
@@ -96,10 +98,12 @@ export const en: Messages = {
   },
   hints: {
     dragToSelect: 'Drag to select a region · Esc to cancel',
+    dragToSelectWithPicker: 'Drag to select a region · Press C to copy color · Esc to cancel',
     loading: 'Loading screenshot…',
     capturing: 'Capturing screen…',
     working: 'Working…',
-    adjustRegion: 'Drag the handles to resize · Drag inside to move · Pick a tool to annotate'
+    adjustRegion: 'Drag the handles to resize · Drag inside to move · Pick a tool to annotate',
+    copyColor: 'Press C to copy'
   },
   scrollCapture: {
     capture: 'Capture next frame',

@@ -44,6 +44,8 @@ struct AppSettings {
     capture_shortcut: String,
     #[serde(default = "default_launch_at_startup")]
     launch_at_startup: bool,
+    #[serde(default = "default_color_picker_enabled")]
+    color_picker_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -56,11 +58,16 @@ impl Default for AppSettings {
                 DEFAULT_SHORTCUT_MAC.into()
             },
             launch_at_startup: default_launch_at_startup(),
+            color_picker_enabled: default_color_picker_enabled(),
         }
     }
 }
 
 fn default_launch_at_startup() -> bool {
+    true
+}
+
+fn default_color_picker_enabled() -> bool {
     true
 }
 
@@ -80,6 +87,8 @@ struct CaptureData {
     image_height: u32,
     scale_factor: f64,
     screen_id: u32,
+    cursor_x: f64,
+    cursor_y: f64,
     #[cfg(target_os = "windows")]
     physical_origin_x: i32,
     #[cfg(target_os = "windows")]
@@ -119,6 +128,8 @@ struct FullScreenshot {
     display_height: f64,
     image_width: u32,
     image_height: u32,
+    cursor_x: f64,
+    cursor_y: f64,
 }
 
 #[derive(Serialize)]
@@ -519,6 +530,30 @@ fn capture_active_screen(app: &AppHandle) -> Result<CaptureData, String> {
     }
     let (image_width, image_height) = image.dimensions();
     let scale_factor = image_width as f64 / bounds.width.max(1.0);
+    let (cursor_x, cursor_y) = if let Ok(raw_cursor) = app.cursor_position() {
+        #[cfg(target_os = "macos")]
+        let (global_x, global_y) = {
+            let primary_scale = Screen::all()
+                .ok()
+                .and_then(|screens| {
+                    screens
+                        .iter()
+                        .find(|s| s.display_info.is_primary)
+                        .map(|s| s.display_info.scale_factor as f64)
+                })
+                .filter(|scale| scale.is_finite() && *scale > 0.0)
+                .unwrap_or(1.0);
+            (raw_cursor.x / primary_scale, raw_cursor.y / primary_scale)
+        };
+        #[cfg(not(target_os = "macos"))]
+        let (global_x, global_y) = (raw_cursor.x / scale_factor.max(1.0), raw_cursor.y / scale_factor.max(1.0));
+        (
+            (global_x - bounds.x).clamp(0.0, (bounds.width - 1.0).max(0.0)),
+            (global_y - bounds.y).clamp(0.0, (bounds.height - 1.0).max(0.0)),
+        )
+    } else {
+        (bounds.width / 2.0, bounds.height / 2.0)
+    };
     Ok(CaptureData {
         png: png_bytes(&image)?,
         bounds,
@@ -526,6 +561,8 @@ fn capture_active_screen(app: &AppHandle) -> Result<CaptureData, String> {
         image_height,
         scale_factor,
         screen_id: info.id,
+        cursor_x,
+        cursor_y,
         #[cfg(target_os = "windows")]
         physical_origin_x,
         #[cfg(target_os = "windows")]
@@ -1913,6 +1950,13 @@ fn write_clipboard_png(data: &[u8]) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+fn write_clipboard_text(text: &str) -> Result<(), String> {
+    Clipboard::new()
+        .map_err(|error| error.to_string())?
+        .set_text(text.to_owned())
+        .map_err(|error| error.to_string())
+}
+
 fn open_shortcut_window(app: &AppHandle) -> Result<(), String> {
     suspend_shortcut(app);
     if let Some(window) = app.get_webview_window("shortcut") {
@@ -2270,7 +2314,7 @@ fn resume_shortcut(app: &AppHandle) {
     }
 }
 
-fn tray_strings(language: &str) -> [&'static str; 9] {
+fn tray_strings(language: &str) -> [&'static str; 10] {
     match language {
         "zh" => [
             "截图",
@@ -2282,6 +2326,7 @@ fn tray_strings(language: &str) -> [&'static str; 9] {
             "打开屏幕录制权限…",
             "开机自动启动",
             "退出",
+            "鼠标取色器",
         ],
         "zh-TW" => [
             "截圖",
@@ -2293,6 +2338,7 @@ fn tray_strings(language: &str) -> [&'static str; 9] {
             "開啟螢幕錄製權限…",
             "開機自動啟動",
             "結束",
+            "滑鼠取色器",
         ],
         _ => [
             "Capture",
@@ -2304,6 +2350,7 @@ fn tray_strings(language: &str) -> [&'static str; 9] {
             "Open Screen Permission…",
             "Launch at Startup",
             "Quit",
+            "Color Picker",
         ],
     }
 }
@@ -2344,6 +2391,14 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         None::<&str>,
     )?;
     let language = Submenu::with_items(app, labels[2], true, &[&en, &zh, &zh_tw])?;
+    let color_picker = CheckMenuItem::with_id(
+        app,
+        "color-picker",
+        labels[9],
+        true,
+        settings.color_picker_enabled,
+        None::<&str>,
+    )?;
     let autostart = CheckMenuItem::with_id(
         app,
         "autostart",
@@ -2364,6 +2419,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 &capture,
                 &shortcut,
                 &language,
+                &color_picker,
                 &permission,
                 &autostart,
                 &separator,
@@ -2375,7 +2431,13 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Menu::with_items(
         app,
         &[
-            &capture, &shortcut, &language, &autostart, &separator, &quit,
+            &capture,
+            &shortcut,
+            &language,
+            &color_picker,
+            &autostart,
+            &separator,
+            &quit,
         ],
     )
 }
@@ -2399,6 +2461,18 @@ fn change_language(app: &AppHandle, language: &str) -> AppSettings {
     refresh_tray(app);
     let _ = app.emit("settings-changed", settings.clone());
     settings
+}
+
+fn toggle_color_picker(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut settings = state.settings.lock().unwrap();
+        settings.color_picker_enabled = !settings.color_picker_enabled;
+        let _ = persist_settings(&settings);
+        settings.clone()
+    };
+    refresh_tray(app);
+    let _ = app.emit("settings-changed", settings);
 }
 
 fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -2475,6 +2549,8 @@ fn get_full_screenshot(state: State<AppState>) -> Result<FullScreenshot, String>
         display_height: capture.bounds.height,
         image_width: capture.image_width,
         image_height: capture.image_height,
+        cursor_x: capture.cursor_x,
+        cursor_y: capture.cursor_y,
     })
 }
 
@@ -2714,6 +2790,13 @@ fn check_screen_permission() -> serde_json::Value {
 #[tauri::command]
 fn copy_image(app: AppHandle, data: Vec<u8>) -> Result<bool, String> {
     write_clipboard_png(&data)?;
+    close_overlay_impl(&app);
+    Ok(true)
+}
+
+#[tauri::command]
+fn copy_color(app: AppHandle, color: String) -> Result<bool, String> {
+    write_clipboard_text(&color)?;
     close_overlay_impl(&app);
     Ok(true)
 }
@@ -3022,6 +3105,7 @@ pub fn run() {
                     "language-en" => { change_language(app, "en"); }
                     "language-zh" => { change_language(app, "zh"); }
                     "language-zh-TW" => { change_language(app, "zh-TW"); }
+                    "color-picker" => { toggle_color_picker(app); }
                     "screen-permission" => open_screen_settings(),
                     "autostart" => {
                         if let Err(error) = toggle_autostart(app) {
@@ -3088,6 +3172,7 @@ pub fn run() {
             cancel_scroll_capture,
             check_screen_permission,
             copy_image,
+            copy_color,
             save_image,
             pin_image,
             get_pin_image,

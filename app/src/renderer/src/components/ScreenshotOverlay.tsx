@@ -35,6 +35,29 @@ const TOOLBAR_HEIGHT = 42
 const PALETTE_HEIGHT = 40
 const EMOJI_PICKER_HEIGHT = 380
 
+const LOUPE_GRID_RADIUS = 5
+const LOUPE_GRID_SIZE = LOUPE_GRID_RADIUS * 2 + 1
+const LOUPE_CELL_SIZE = 11
+const LOUPE_SIZE = LOUPE_GRID_SIZE * LOUPE_CELL_SIZE
+const PICKER_WIDTH = 148
+const PICKER_HEIGHT = 216
+
+interface PickerState {
+  clientX: number
+  clientY: number
+  hex: string
+  r: number
+  g: number
+  b: number
+  px: number
+  py: number
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (n: number): string => n.toString(16).padStart(2, '0').toUpperCase()
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
 interface EmojiObject {
   id: string
   emoji: string
@@ -282,6 +305,10 @@ function ScreenshotOverlay(): React.JSX.Element {
   const shotRef = useRef<HTMLCanvasElement>(null)
   const shotViewportRef = useRef<HTMLDivElement>(null)
   const fullImageRef = useRef<HTMLImageElement | null>(null)
+  const rawCtxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const loupeCanvasRef = useRef<HTMLCanvasElement>(null)
+  const cursorPosRef = useRef<{ x: number; y: number } | null>(null)
+  const pickerColorRef = useRef<PickerState | null>(null)
   const origin = useRef({ x: 0, y: 0 })
   const drawOrigin = useRef({ x: 0, y: 0 })
   const history = useRef<ImageData[]>([])
@@ -343,7 +370,18 @@ function ScreenshotOverlay(): React.JSX.Element {
   const [editHeight, setEditHeight] = useState(0)
   const [viewScrollTop, setViewScrollTop] = useState(0)
   const [adjustingRegion, setAdjustingRegion] = useState(false)
+  const [colorPickerEnabled, setColorPickerEnabled] = useState(true)
+  const [pickerState, setPickerState] = useState<PickerState | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void window.api.getSettings().then((settings) => {
+      setColorPickerEnabled(settings.colorPickerEnabled)
+    })
+    return window.api.onSettingsChanged((settings) => {
+      setColorPickerEnabled(settings.colorPickerEnabled)
+    })
+  }, [])
 
   const selection = useStore((s) => s.selection)
   const setSelection = useStore((s) => s.setSelection)
@@ -610,6 +648,113 @@ function ScreenshotOverlay(): React.JSX.Element {
     [selection]
   )
 
+  const updateColorPicker = useCallback((clientX: number, clientY: number) => {
+    const cx = Math.max(0, Math.min(clientX, window.innerWidth - 1))
+    const cy = Math.max(0, Math.min(clientY, window.innerHeight - 1))
+    cursorPosRef.current = { x: cx, y: cy }
+
+    const image = fullImageRef.current
+    const rawCtx = rawCtxRef.current
+    if (!image || !rawCtx) return
+
+    const { scaleX, scaleY } = syncImageScale(image)
+    const imgW = image.naturalWidth
+    const imgH = image.naturalHeight
+    const px = Math.min(imgW - 1, Math.max(0, Math.floor(cx * scaleX)))
+    const py = Math.min(imgH - 1, Math.max(0, Math.floor(cy * scaleY)))
+
+    const minX = Math.max(0, px - LOUPE_GRID_RADIUS)
+    const maxX = Math.min(imgW - 1, px + LOUPE_GRID_RADIUS)
+    const minY = Math.max(0, py - LOUPE_GRID_RADIUS)
+    const maxY = Math.min(imgH - 1, py + LOUPE_GRID_RADIUS)
+    const patchW = maxX - minX + 1
+    const patchH = maxY - minY + 1
+    const patch = rawCtx.getImageData(minX, minY, patchW, patchH).data
+
+    const sampleAt = (sx: number, sy: number): [number, number, number] => {
+      const clampedX = Math.min(maxX, Math.max(minX, sx))
+      const clampedY = Math.min(maxY, Math.max(minY, sy))
+      const idx = ((clampedY - minY) * patchW + (clampedX - minX)) * 4
+      return [patch[idx], patch[idx + 1], patch[idx + 2]]
+    }
+
+    const [r, g, b] = sampleAt(px, py)
+    const hex = rgbToHex(r, g, b)
+    const nextState: PickerState = {
+      clientX: cx,
+      clientY: cy,
+      hex,
+      r,
+      g,
+      b,
+      px: Math.round(cx),
+      py: Math.round(cy)
+    }
+    pickerColorRef.current = nextState
+    setPickerState(nextState)
+
+    const loupe = loupeCanvasRef.current
+    if (loupe) {
+      const dpr = window.devicePixelRatio || 1
+      const targetSize = Math.round(LOUPE_SIZE * dpr)
+      if (loupe.width !== targetSize || loupe.height !== targetSize) {
+        loupe.width = targetSize
+        loupe.height = targetSize
+      }
+      const lctx = loupe.getContext('2d')
+      if (lctx) {
+        lctx.save()
+        lctx.scale(dpr, dpr)
+        lctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE)
+        for (let gy = 0; gy < LOUPE_GRID_SIZE; gy++) {
+          for (let gx = 0; gx < LOUPE_GRID_SIZE; gx++) {
+            const [pr, pg, pb] = sampleAt(
+              px + gx - LOUPE_GRID_RADIUS,
+              py + gy - LOUPE_GRID_RADIUS
+            )
+            lctx.fillStyle = `rgb(${pr}, ${pg}, ${pb})`
+            lctx.fillRect(
+              gx * LOUPE_CELL_SIZE,
+              gy * LOUPE_CELL_SIZE,
+              LOUPE_CELL_SIZE,
+              LOUPE_CELL_SIZE
+            )
+          }
+        }
+        lctx.strokeStyle = 'rgba(255, 255, 255, 0.14)'
+        lctx.lineWidth = 0.5
+        lctx.beginPath()
+        for (let i = 1; i < LOUPE_GRID_SIZE; i++) {
+          const pos = i * LOUPE_CELL_SIZE
+          lctx.moveTo(pos, 0)
+          lctx.lineTo(pos, LOUPE_SIZE)
+          lctx.moveTo(0, pos)
+          lctx.lineTo(LOUPE_SIZE, pos)
+        }
+        lctx.stroke()
+
+        const centerOffset = LOUPE_GRID_RADIUS * LOUPE_CELL_SIZE
+        lctx.strokeStyle = 'rgba(0, 0, 0, 0.85)'
+        lctx.lineWidth = 1.5
+        lctx.strokeRect(
+          centerOffset - 0.75,
+          centerOffset - 0.75,
+          LOUPE_CELL_SIZE + 1.5,
+          LOUPE_CELL_SIZE + 1.5
+        )
+        lctx.strokeStyle = '#ffffff'
+        lctx.lineWidth = 1.2
+        lctx.strokeRect(
+          centerOffset + 0.5,
+          centerOffset + 0.5,
+          LOUPE_CELL_SIZE - 1,
+          LOUPE_CELL_SIZE - 1
+        )
+        lctx.restore()
+      }
+    }
+  }, [])
+
   // Load frozen screenshot once
   useEffect(() => {
     let cancelled = false
@@ -621,6 +766,12 @@ function ScreenshotOverlay(): React.JSX.Element {
         if (cancelled) return
         fullImageRef.current = img
         imageScaleRef.current = syncImageScale(img)
+        const rawCanvas = document.createElement('canvas')
+        rawCanvas.width = img.naturalWidth
+        rawCanvas.height = img.naturalHeight
+        const rawCtx = rawCanvas.getContext('2d', { willReadFrequently: true })
+        rawCtx?.drawImage(img, 0, 0)
+        rawCtxRef.current = rawCtx
         const canvas = bgRef.current
         if (!canvas) return
         canvas.width = shot.imageWidth
@@ -629,6 +780,10 @@ function ScreenshotOverlay(): React.JSX.Element {
         paintBackground(null)
         setPhase('selecting')
         setError(null)
+        updateColorPicker(
+          shot.cursorX ?? window.innerWidth / 2,
+          shot.cursorY ?? window.innerHeight / 2
+        )
         await waitForOverlayPaint()
         if (cancelled) return
         await window.api.showCaptureOverlay()
@@ -642,7 +797,14 @@ function ScreenshotOverlay(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [paintBackground])
+  }, [paintBackground, updateColorPicker])
+
+  const hasPicker = Boolean(pickerState)
+  useEffect(() => {
+    if (phase === 'selecting' && hasPicker && cursorPosRef.current) {
+      updateColorPicker(cursorPosRef.current.x, cursorPosRef.current.y)
+    }
+  }, [phase, hasPicker, updateColorPicker])
 
   useEffect(() => {
     if (phase === 'loading') return
@@ -820,6 +982,32 @@ function ScreenshotOverlay(): React.JSX.Element {
         event.preventDefault()
         undo()
       }
+      if (
+        colorPickerEnabled &&
+        (event.key === 'c' || event.key === 'C') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !busy
+      ) {
+        event.preventDefault()
+        if (!pickerColorRef.current) {
+          const pos = cursorPosRef.current ?? {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+          }
+          updateColorPicker(pos.x, pos.y)
+        }
+        const color = pickerColorRef.current?.hex
+        if (color) {
+          pendingAction.current += 1
+          setBusy(true)
+          void window.api.copyColor(color).finally(() => {
+            setBusy(false)
+          })
+        }
+        return
+      }
       if (event.key === 'Enter' && phase === 'editing' && shotReady && !busy) {
         event.preventDefault()
         void (async () => {
@@ -834,10 +1022,25 @@ function ScreenshotOverlay(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [phase, busy, shotReady, undo, exportPng, cancelOverlay, textEditor, selectedTextId, selectedEmojiId])
+  }, [
+    phase,
+    busy,
+    shotReady,
+    undo,
+    exportPng,
+    cancelOverlay,
+    textEditor,
+    selectedTextId,
+    selectedEmojiId,
+    updateColorPicker,
+    colorPickerEnabled
+  ])
 
   useEffect(() => {
     const onMove = (event: MouseEvent): void => {
+      if (colorPickerEnabled) {
+        updateColorPicker(event.clientX, event.clientY)
+      }
       const canvas = shotRef.current
       if (!canvas || !selection) return
       const scale = canvas.width / Math.max(1, selection.width)
@@ -913,7 +1116,7 @@ function ScreenshotOverlay(): React.JSX.Element {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [selection, recropSelection])
+  }, [selection, recropSelection, updateColorPicker, colorPickerEnabled])
 
   const onBgMouseDown = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1381,7 +1584,9 @@ function ScreenshotOverlay(): React.JSX.Element {
       {phase === 'loading' && <div className="overlay-status">{t.hints.capturing}</div>}
 
       {phase === 'selecting' && !selection && !error && (
-        <div className="overlay-hint-bar">{t.hints.dragToSelect}</div>
+        <div className="overlay-hint-bar">
+          {colorPickerEnabled ? t.hints.dragToSelectWithPicker : t.hints.dragToSelect}
+        </div>
       )}
 
       {error && <div className="overlay-hint-bar overlay-hint-bar--error">{error}</div>}
@@ -1394,6 +1599,45 @@ function ScreenshotOverlay(): React.JSX.Element {
           {Math.round(selection.width)} × {Math.round(selection.height)}
         </div>
       )}
+
+      {phase === 'selecting' &&
+        colorPickerEnabled &&
+        pickerState &&
+        (() => {
+          const offset = 20
+          const flipX = pickerState.clientX + offset + PICKER_WIDTH + 12 > window.innerWidth
+          const flipY = pickerState.clientY + offset + PICKER_HEIGHT + 12 > window.innerHeight
+          const left = flipX
+            ? Math.max(8, pickerState.clientX - PICKER_WIDTH - offset)
+            : pickerState.clientX + offset
+          const top = flipY
+            ? Math.max(8, pickerState.clientY - PICKER_HEIGHT - offset)
+            : pickerState.clientY + offset
+          return (
+            <div className="color-picker-loupe" style={{ left, top }}>
+              <div className="color-picker-loupe__canvas-wrap">
+                <canvas
+                  ref={loupeCanvasRef}
+                  className="color-picker-loupe__canvas"
+                  style={{ width: LOUPE_SIZE, height: LOUPE_SIZE }}
+                />
+              </div>
+              <div className="color-picker-loupe__meta">
+                <div className="color-picker-loupe__row">
+                  <span
+                    className="color-picker-loupe__swatch"
+                    style={{ backgroundColor: pickerState.hex }}
+                  />
+                  <span className="color-picker-loupe__hex">{pickerState.hex}</span>
+                </div>
+                <div className="color-picker-loupe__sub">
+                  RGB({pickerState.r}, {pickerState.g}, {pickerState.b})
+                </div>
+                <div className="color-picker-loupe__hint">{t.hints.copyColor}</div>
+              </div>
+            </div>
+          )
+        })()}
 
       {phase === 'editing' && toolbarPos && (
         <>
