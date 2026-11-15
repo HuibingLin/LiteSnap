@@ -14,6 +14,7 @@ export interface AppSettings {
   language: Language
   captureShortcut: string
   launchAtStartup: boolean
+  colorPickerEnabled: boolean
 }
 
 export interface SetShortcutResult {
@@ -28,6 +29,8 @@ export interface FullScreenshot {
   displayHeight: number
   imageWidth: number
   imageHeight: number
+  cursorX?: number
+  cursorY?: number
 }
 
 export interface ScrollCaptureResult {
@@ -51,6 +54,7 @@ export interface Api {
   onScrollCapturePreview: (callback: (payload: ScrollPreview) => void) => () => void
   checkScreenPermission: () => Promise<{ granted: boolean; status: string }>
   copyImage: (png: Uint8Array) => Promise<boolean>
+  copyColor: (color: string) => Promise<boolean>
   saveImage: (png: Uint8Array) => Promise<boolean>
   pinImage: (png: Uint8Array) => Promise<boolean>
   openUrl: (url: string) => Promise<boolean>
@@ -119,6 +123,7 @@ export const api: Api = {
   onScrollCapturePreview: (callback) => subscribe('scroll-capture-preview', callback),
   checkScreenPermission: () => invoke('check_screen_permission'),
   copyImage: (png) => invoke('copy_image', { data: bytes(png) }),
+  copyColor: (color) => invoke('copy_color', { color }),
   saveImage: (png) => invoke('save_image', { data: bytes(png) }),
   // A base64 string avoids both WebView2's unreliable top-level raw IPC and
   // the huge JSON number arrays that originally blocked its window thread.
